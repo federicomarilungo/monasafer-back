@@ -13,6 +13,11 @@ import {
 import { Public } from '../auth/public.decorator';
 import { UsuarioId } from '../auth/usuario.guard';
 import { googleClientId } from '../auth/google';
+import { ipDe, Limitador } from '../auth/limite';
+import { Req } from '@nestjs/common';
+
+type ReqHttp = { headers: Record<string, unknown>; ip?: string };
+const MIN = 60 * 1000;
 import { MonasaferService } from './monasafer.service';
 import * as v from './validar';
 import { BadRequestException } from '@nestjs/common';
@@ -21,9 +26,12 @@ import { BadRequestException } from '@nestjs/common';
 export class MonasaferController {
   constructor(private readonly s: MonasaferService) {}
 
+  private readonly limite = new Limitador();
+
   @Public()
   @Post('auth/registro')
-  registro(@Body() body: unknown) {
+  registro(@Body() body: unknown, @Req() req: ReqHttp) {
+    this.limite.usar(`registro:${ipDe(req)}`, 10, 60 * MIN);
     const b = v.objeto(body);
     return this.s.registrar(
       v.email(b.email),
@@ -35,10 +43,13 @@ export class MonasaferController {
   @Public()
   @Post('auth/login')
   @HttpCode(200)
-  login(@Body() body: unknown) {
+  login(@Body() body: unknown, @Req() req: ReqHttp) {
     const b = v.objeto(body);
+    const email = v.email(b.email);
+    this.limite.usar(`login:${ipDe(req)}`, 30, 15 * MIN);
+    this.limite.usar(`login:${email}`, 10, 15 * MIN);
     return this.s.login(
-      v.email(b.email),
+      email,
       typeof b.clave === 'string' ? b.clave : '',
     );
   }
@@ -46,11 +57,42 @@ export class MonasaferController {
   @Public()
   @Post('auth/google')
   @HttpCode(200)
-  loginGoogle(@Body() body: unknown) {
+  loginGoogle(@Body() body: unknown, @Req() req: ReqHttp) {
+    this.limite.usar(`google:${ipDe(req)}`, 30, 15 * MIN);
     const b = v.objeto(body);
     if (typeof b.credencial !== 'string' || b.credencial.length > 5000)
       throw new BadRequestException('credencial inválida');
     return this.s.loginGoogle(b.credencial);
+  }
+
+  @Public()
+  @Post('auth/olvide')
+  @HttpCode(200)
+  olvide(@Body() body: unknown, @Req() req: ReqHttp) {
+    const email = v.email(v.objeto(body).email);
+    this.limite.usar(`olvide:${ipDe(req)}`, 10, 60 * MIN);
+    this.limite.usar(`olvide:${email}`, 3, 60 * MIN);
+    return this.s.olvideClave(email);
+  }
+
+  @Public()
+  @Post('auth/recuperar')
+  @HttpCode(200)
+  recuperar(@Body() body: unknown, @Req() req: ReqHttp) {
+    this.limite.usar(`recuperar:${ipDe(req)}`, 20, 15 * MIN);
+    const b = v.objeto(body);
+    if (typeof b.codigo !== 'string' || b.codigo.length > 100)
+      throw new BadRequestException('El link no es válido');
+    return this.s.recuperarClave(b.codigo, v.clave(b.clave));
+  }
+
+  @Delete('perfil')
+  borrarCuenta(@UsuarioId() u: string, @Body() body: unknown) {
+    const b = v.objeto(body);
+    return this.s.borrarCuenta(
+      u,
+      typeof b.confirmacion === 'string' ? b.confirmacion : '',
+    );
   }
 
   @Public()

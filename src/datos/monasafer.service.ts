@@ -12,10 +12,15 @@ import { Datos, mesDe, proyectar, resumenDelMes, sumarMeses } from '../motor';
 import { hashClave, Tokens, verificarClave } from '../auth/tokens';
 import { googleClientId, VerificadorGoogle } from '../auth/google';
 import { Sesiones } from '../auth/usuario.guard';
+import { Correo, emailRecupero, urlApp } from '../auth/correo';
+import crypto from 'crypto';
 import { GastoDb, MesGasto, UsoReservaDb, Usuario } from './esquemas';
 import { GastoEntrada } from './validar';
 
 const MESES_MAXIMOS = 24;
+
+const sha256 = (s: string) =>
+  crypto.createHash('sha256').update(s).digest('hex');
 
 function oid(id: string): Types.ObjectId {
   if (!Types.ObjectId.isValid(id)) throw new NotFoundException();
@@ -31,6 +36,7 @@ export class MonasaferService implements Sesiones {
     @InjectModel(UsoReservaDb.name) private readonly usos: Model<UsoReservaDb>,
     private readonly tokens: Tokens,
     private readonly google: VerificadorGoogle,
+    private readonly correo: Correo,
   ) {}
 
   /** Cache corta de `sesionesDesde` para no ir a la base en cada request. */
@@ -106,6 +112,69 @@ export class MonasaferService implements Sesiones {
       perfil: this.perfilPublico(u!),
       nuevo,
     };
+  }
+
+  /**
+   * Manda el link de recupero si hay una cuenta con ese email. Responde lo mismo haya o no,
+   * para no revelar qué emails están registrados. El código va después del `#`.
+   */
+  async olvideClave(email: string) {
+    const u = await this.usuarios.findOne({ email });
+    if (!u) return { ok: true };
+    const codigo = crypto.randomBytes(32).toString('base64url');
+    await this.usuarios.updateOne(
+      { _id: u._id },
+      {
+        $set: {
+          recuperoHash: sha256(codigo),
+          recuperoVence: new Date(Date.now() + 60 * 60 * 1000),
+        },
+      },
+    );
+    await this.correo.enviar(
+      u.email,
+      'Cambiá tu contraseña de Monasafer',
+      emailRecupero(`${urlApp()}/#recuperar=${codigo}`, u.nombre),
+    );
+    return { ok: true };
+  }
+
+  /** Usa el link: guarda la contraseña nueva, invalida el link y cierra las otras sesiones. */
+  async recuperarClave(codigo: string, clave: string) {
+    const u = await this.usuarios.findOneAndUpdate(
+      { recuperoHash: sha256(codigo), recuperoVence: { $gt: new Date() } },
+      {
+        $set: {
+          hashClave: hashClave(clave),
+          recuperoHash: null,
+          recuperoVence: null,
+          sesionesDesde: new Date(Math.floor(Date.now() / 1000) * 1000),
+        },
+      },
+      { new: true },
+    );
+    if (!u)
+      throw new BadRequestException(
+        'El link venció o ya se usó. Pedí uno nuevo.',
+      );
+    this.cacheSesiones.delete(u.id);
+    return { token: this.tokens.generar(u.id), perfil: this.perfilPublico(u) };
+  }
+
+  /** Borra la cuenta y todo lo que cargó (Play lo exige). Para confirmar, el email de la cuenta. */
+  async borrarCuenta(usuarioId: string, confirmacion: string) {
+    const u = await this.usuario(usuarioId);
+    if (confirmacion.trim().toLowerCase() !== u.email)
+      throw new BadRequestException('Escribí tu email para confirmar');
+    await Promise.all([
+      this.gastos.deleteMany({ usuarioId: u._id }),
+      this.meses.deleteMany({ usuarioId: u._id }),
+      this.usos.deleteMany({ usuarioId: u._id }),
+    ]);
+    await this.usuarios.deleteOne({ _id: u._id });
+    this.cacheSesiones.delete(u.id);
+    console.log(`[cuenta] borrada ${u.id}`);
+    return { ok: true };
   }
 
   async vigente(usuarioId: string, emitido: number): Promise<boolean> {

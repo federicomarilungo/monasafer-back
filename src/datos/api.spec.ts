@@ -5,6 +5,7 @@ import request from 'supertest';
 import { AppModule } from '../app.module';
 import { MonasaferService } from './monasafer.service';
 import { VerificadorGoogle } from '../auth/google';
+import { Correo } from '../auth/correo';
 
 // Prueba la API entera contra un Mongo en memoria. Hoy = 15/10/2026.
 jest.setTimeout(60000);
@@ -14,6 +15,7 @@ describe('API de Monasafer', () => {
   let mongo: MongoMemoryServer;
   let app: INestApplication;
   let http: ReturnType<typeof request>;
+  const correos: { para: string; html: string }[] = [];
 
   beforeAll(async () => {
     process.env.AUTH_SECRET = 's'.repeat(40);
@@ -27,6 +29,12 @@ describe('API de Monasafer', () => {
     jest
       .spyOn(mod.get(MonasaferService), 'hoy')
       .mockReturnValue(new Date(2026, 9, 15));
+    jest
+      .spyOn(mod.get(Correo), 'enviar')
+      .mockImplementation(async (para, _asunto, html) => {
+        correos.push({ para, html });
+        return true;
+      });
     // Credencial falsa "google:<sub>:<email>" en lugar del ID token firmado por Google.
     jest
       .spyOn(mod.get(VerificadorGoogle), 'verificar')
@@ -47,6 +55,7 @@ describe('API de Monasafer', () => {
   async function cuenta(email: string) {
     const r = await http
       .post('/auth/registro')
+      .set('do-connecting-ip', email) // cada cuenta "desde otra IP", por el límite de registros
       .send({ email, clave: 'bananas123', nombre: 'Fede' })
       .expect(201);
     return {
@@ -142,6 +151,84 @@ describe('API de Monasafer', () => {
       .post('/auth/login')
       .send({ email: 'dueno@gmail.com', clave: 'bananas123' })
       .expect(401);
+  });
+
+  it('recupero de contraseña: link de un solo uso que cierra las otras sesiones', async () => {
+    const vieja = await cuenta('olvido@test.com');
+    await http
+      .post('/auth/olvide')
+      .send({ email: 'nadie@test.com' })
+      .expect(200);
+    expect(correos).toHaveLength(0);
+    await http
+      .post('/auth/olvide')
+      .send({ email: 'OLVIDO@test.com' })
+      .expect(200);
+    expect(correos).toHaveLength(1);
+    expect(correos[0].para).toBe('olvido@test.com');
+    const codigo = /#recuperar=([\w-]+)/.exec(correos[0].html)![1];
+    await http
+      .post('/auth/recuperar')
+      .send({ codigo: 'inventado', clave: 'nueva-clave-1' })
+      .expect(400);
+    await new Promise((r) => setTimeout(r, 1100));
+    const r = await http
+      .post('/auth/recuperar')
+      .send({ codigo, clave: 'nueva-clave-1' })
+      .expect(200);
+    await http
+      .get('/perfil')
+      .set({ Authorization: `Bearer ${r.body.token}` })
+      .expect(200);
+    await http.get('/perfil').set(vieja.auth).expect(401);
+    await http
+      .post('/auth/recuperar')
+      .send({ codigo, clave: 'otra-clave-22' })
+      .expect(400);
+    await http
+      .post('/auth/login')
+      .send({ email: 'olvido@test.com', clave: 'nueva-clave-1' })
+      .expect(200);
+  });
+
+  it('borrar la cuenta se lleva todos sus datos y el token deja de valer', async () => {
+    const c = await cuenta('chau@test.com');
+    await http
+      .post('/gastos')
+      .set(c.auth)
+      .send({ nombre: 'Luz', monto: 3000, tipo: 'fijo', mesInicio: '2026-10' })
+      .expect(201);
+    await http
+      .delete('/perfil')
+      .set(c.auth)
+      .send({ confirmacion: 'otro@test.com' })
+      .expect(400);
+    await http
+      .delete('/perfil')
+      .set(c.auth)
+      .send({ confirmacion: 'CHAU@test.com' })
+      .expect(200);
+    await http.get('/gastos').set(c.auth).expect(401);
+    await http
+      .post('/auth/login')
+      .send({ email: 'chau@test.com', clave: 'bananas123' })
+      .expect(401);
+    // se puede volver a crear con el mismo email, vacía
+    const otra = await cuenta('chau@test.com');
+    const g = await http.get('/gastos').set(otra.auth).expect(200);
+    expect(g.body).toHaveLength(0);
+  });
+
+  it('límite de intentos de login por email', async () => {
+    for (let i = 0; i < 10; i++)
+      await http
+        .post('/auth/login')
+        .send({ email: 'fuerza@test.com', clave: 'x' })
+        .expect(401);
+    await http
+      .post('/auth/login')
+      .send({ email: 'fuerza@test.com', clave: 'x' })
+      .expect(429);
   });
 
   it('el flujo completo del mes: saldo, gastos, pagar, reservas y proyección', async () => {

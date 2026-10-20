@@ -19,6 +19,9 @@ export class Usuario {
   @Prop({ type: String, default: null }) googleSub: string | null;
   /** Los tokens emitidos antes de esta fecha no valen (al vincular Google a una cuenta con contraseña). */
   @Prop({ type: Date, default: null }) sesionesDesde: Date | null;
+  /** sha256 del código del último link de recupero, y hasta cuándo vale. */
+  @Prop({ type: String, default: null }) recuperoHash: string | null;
+  @Prop({ type: Date, default: null }) recuperoVence: Date | null;
   @Prop({ default: '' }) nombre: string;
   @Prop({ default: 'USD', enum: ['USD', 'ARS'] }) moneda: string;
   @Prop({ default: 0 }) saldo: number;

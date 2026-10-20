@@ -44,6 +44,9 @@ Sin `MONGO_URI` la API levanta solo con `GET /ping`, `GET /salud` y `POST /admin
 |---|---|
 | `POST /auth/registro`, `POST /auth/login` (públicos) | `{email, clave, nombre?}` → `{token, perfil}`. Token JWT de 30 días firmado con `AUTH_SECRET` |
 | `POST /auth/google` (público) | `{credencial}` (ID token del botón de Google) → `{token, perfil, nuevo}`. Verifica con `google-auth-library` contra el Client ID; busca por `googleSub`, si no por email (vincula, borra la contraseña y cierra sesiones viejas con `sesionesDesde`), si no crea la cuenta. Sin Firebase |
+| `POST /auth/olvide` (público) | `{email}` → siempre `{ok:true}`; si hay cuenta manda con Resend (`RESEND_API_KEY`) un link `APP_URL/#recuperar=<código>` que vale 1 h y un uso |
+| `POST /auth/recuperar` (público) | `{codigo, clave}` → `{token, perfil}`; cierra las otras sesiones |
+| `DELETE /perfil` | `{confirmacion: <email>}` borra la cuenta y todos sus gastos, meses y usos (lo exige Play) |
 | `GET /auth/config` (público) | `{googleClientId}`: el front muestra el botón solo si hay. Client ID en `src/auth/google.ts` o `GOOGLE_CLIENT_ID` |
 | `GET/PATCH /perfil` | nombre, moneda, saldo, `ingresoMensual {monto, diaCobro}` |
 | `POST /perfil/cobrar-ingreso` | suma el ingreso al saldo, una vez por mes |
@@ -53,6 +56,9 @@ Sin `MONGO_URI` la API levanta solo con `GET /ping`, `GET /salud` y `POST /admin
 | `GET/POST /gastos/:id/usos`, `DELETE /usos/:id` | usos de reserva (bajan el saldo) |
 | `GET /datos` | perfil + gastos + estados + usos desde el mes actual, para que el front calcule |
 | `GET /meses/:mes`, `GET /proyeccion?hasta=AAAA-MM` | resumen con el motor (hasta 24 meses) |
+
+Login, registro, Google y recupero tienen límite de intentos por IP y por email
+(`src/auth/limite.ts`, en memoria; 429 al pasarse).
 
 Todo pide `Authorization: Bearer <token>` (guard global `UsuarioGuard`) salvo lo marcado
 con `@Public()`, y cada consulta filtra por el usuario: ver el test "un usuario no puede
