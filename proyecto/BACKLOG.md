@@ -18,10 +18,10 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 
 | ID | Tarea | Prio | Estado | Quién | Depende de |
 |---|---|---|---|---|---|
-| A1 | Repos `monasafer-back` y `monasafer-front` con acceso de Claude | P0 | bloqueada | Fede | |
+| A1 | Repos `monasafer-back` y `monasafer-front` con acceso de Claude | P0 | hecha | Fede | |
 | A2 | Esqueletos de los dos repos y documentos del proyecto | P0 | hecha | Claude | A1 |
 | A3 | Base `monasafer` y usuario en Atlas | P0 | bloqueada | Fede | |
-| A4 | App de DO (service + static site) y primer deploy | P0 | lista | Claude | A1 |
+| A4 | App de DO (service + static site) y primer deploy | P0 | hecha | Claude | A1 |
 | A5 | CI con tests en los dos repos | P1 | lista | Claude | A1 |
 | A6 | Activar el ciclo autónomo (tarea programada) | P0 | lista | Ambos | A4 |
 | B1 | Motor de cálculo (balance, fijos con vencimiento, reservas, proyección) | P0 | hecha | Claude | A2 |
@@ -44,24 +44,24 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | E2 | Cuenta compartida (pareja) | P2 | lista | Ambos | B2 |
 | E3 | Dominio propio | P2 | bloqueada | Fede | |
 
-Orden sugerido: A1 → A4 → A3 → B2 → B3 → B4 → B6 → C2 → C3 → B5 → C5 → C4 → C6; C1 en
+Orden sugerido: A3 → B2 → B3 → B4 → B6 → C2 → C3 → B5 → C5 → C4 → C6; C1 en
 paralelo desde ya, para que Fede elija el mono mientras se arma la API.
 
 ---
 
 ## Detalle
 
-**A1 · Repos con acceso de Claude** — Fede creó los dos repos el 20/10/2026. Falta
-instalar la app de GitHub de Claude en ambos (PREGUNTAS A1.1).
+**A1 · Repos con acceso de Claude** — Fede creó los dos repos el 20/10/2026. Acceso de
+Claude listo el mismo día.
 
-**A2 · Esqueletos** — Hecha el 20/10/2026 (local, se sube con A1). Back: NestJS con
+**A2 · Esqueletos** — Hecha el 20/10/2026. Back: NestJS con
 `/ping` y `/salud`, arranca sin `MONGO_URI`. Front: Vite + JS puro con la pantalla del mes
 de demo y el mono en SVG. Docs `proyecto/`, CLAUDE.md y skills en el back.
 
 **A3 · Base en Atlas** — Base `monasafer` y usuario `monasafer_app` (readWrite solo ahí).
 La API de Atlas rechaza al entorno cloud por IP: lo hace Fede (PREGUNTAS A3.1).
 
-**A4 · App de DO** — Criterios: app `monasafer` en `atl` con componente `back` (service
+**A4 · App de DO** — Hecha el 20/10/2026: https://monasafer-4lh7x.ondigitalocean.app (front en `/`, back en `/api`, mismo dominio, sin CORS). Criterios originales: app `monasafer` en `atl` con componente `back` (service
 `apps-s-1vcpu-0.5gb`, `npm run build`, `npm run start:prod`, puerto 3001, health
 `/ping`) y `front` (static site, `npm run build`, `dist/`, `VITE_API_URL` apuntando al
 back). `deploy_on_push` en los dos. `CORS_ORIGINS` del back = URL del front. Ids y URLs

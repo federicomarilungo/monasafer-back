@@ -10,10 +10,6 @@ con la recomendación si no respondés en el ciclo siguiente.
 
 ## Nuevas
 
-### A1 · Repos
-- **A1.1** 🔴 Instalar la app de GitHub de Claude en `monasafer-back` y `monasafer-front`
-  (desde https://claude.ai/connect-github). Sin eso no puedo pushear.
-
 ### A3 · Base en Atlas
 - **A3.1** 🔴 La API de Atlas no deja entrar al entorno cloud (access list por IP). Te
   sugiero crear vos el usuario desde la web: Database Access → Add New Database User,
@@ -30,5 +26,6 @@ con la recomendación si no respondés en el ciclo siguiente.
 
 ## Respondidas
 
+- **A1.1** (20/10/2026): Fede le dio acceso a la app de GitHub de Claude a los dos repos.
 - **Stack** (20/10/2026): back NestJS, front HTML puro (sin React). Dos repos como abisal.
 - **Costo** (20/10/2026): la app de DO de ~USD 5/mes está ok.
