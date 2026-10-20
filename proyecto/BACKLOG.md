@@ -44,6 +44,7 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | L11 | Ficha de Play: textos, ícono, portada y capturas | P0 | lista | Claude | |
 | L12 | Formularios de la consola (seguridad de datos, clasificación, financiero, acceso) | P0 | lista | Ambos | L3, L9 |
 | L13 | Prueba cerrada con 12+ testers durante 14 días y pedido de producción | P0 | lista | Fede | L10-L12 |
+| I1 | Elegir idioma (castellano / inglés) y moneda (9) | P1 | hecha | Claude | B3 |
 | C1 | Propuestas visuales del mono y de la pantalla del mes | P0 | lista | Ambos | |
 | C2 | Pantalla del mes: balance, mono y lista de gastos | P0 | hecha | Claude | C1, B6 |
 | C3 | Alta rápida de gasto | P0 | hecha | Claude | C2 |
@@ -64,14 +65,14 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | E3 | Dominio propio | P2 | bloqueada | Fede | |
 | R1 | Buzón de recomendaciones en la app ("¿Qué le mejorarías a Mona?") | P1 | lista | Claude | B2 |
 | R2 | Leer las recomendaciones en cada ciclo y convertirlas en tareas | P2 | lista | Claude | R1, A6 |
-| S1 | Plan premium en el back (quién es premium, hasta cuándo, de dónde pagó) | P2 | preguntas | Claude | B2 |
-| S2 | Métricas premium con 3 vistas gratis | P2 | preguntas | Claude | S1, D2 |
-| S3 | Asistente con IA por chat: crea gastos y los marca pagos, pregunta lo que falta | P2 | preguntas | Claude | S1 |
-| S4 | Asistente por voz (dictado sobre S3) | P2 | lista | Claude | S3 |
-| S5 | Publicidad liviana que se va con la suscripción | P2 | preguntas | Ambos | S1 |
+| S1 | Plan premium en el back (quién es premium, hasta cuándo, de dónde pagó) | P1 | hecha | Claude | B2 |
+| S2 | Métricas premium con 3 vistas gratis | P1 | hecha | Claude | S1, D2 |
+| S3 | Asistente con IA por chat: crea gastos y los marca pagos, pregunta lo que falta | P1 | en revisión | Claude | S1 |
+| S4 | Asistente por voz (dictado sobre S3) | P1 | hecha | Claude | S3 |
+| S5 | Publicidad liviana que se va con la suscripción | P2 | hecha | Ambos | S1 |
 | S6 | Publicar en Play Store como TWA (la PWA empaquetada) | P2 | preguntas | Ambos | C7 |
 | S7 | Suscripción de USD 2/mes con Google Play Billing, verificada en el back | P2 | preguntas | Ambos | S1, S6 |
-| S8 | Pago de la suscripción desde la web (fuera de Play) | P2 | preguntas | Ambos | S1 |
+| S8 | Pago de la suscripción desde la web (Mercado Pago) | P1 | en revisión | Ambos | S1 |
 
 Orden sugerido: C1 (diseño final del mono, con Fede) → D2 → A5 → R1 → D3. La épica S
 (premium) va después de que la app tenga uso diario: primero S1 y S3, que es el gancho;
@@ -231,3 +232,16 @@ Hecho el 20/10: L2 (⚙️ → Borrar mi cuenta, `DELETE /perfil`, y la página 
 (falta `RESEND_API_KEY` y el dominio verificado en Resend para que salgan los emails),
 borradores de `/privacidad.html` y `/terminos.html` (falta que Fede los lea y complete el
 responsable: nombre o razón social).
+
+**Épica S, 20/10/2026 (decisión de Fede: "avancemos con todos los features premium… por
+ahora vamos sin Play Store, que funcione la suscripción web").** Hecho: S1 (usos gratis
+en la base: 3 vistas de métricas, 10 mensajes), S2 (📊 ahorro a 12 meses, gastos por mes,
+en qué se va la plata), S3 (💬 chat con Claude Haiku 5.5 que propone y la persona
+confirma; tope global USD 1/día y 60 mensajes/día para premium), S4 (🎙️ Web Speech API),
+S5 (un aviso propio, sin red de anuncios: AdSense en una app de plata con pocos usuarios
+rinde centavos), S8 (Mercado Pago en pesos, `PREMIUM_PRECIO_ARS`). S3 y S8 esperan las
+claves de Fede (`ANTHROPIC_API_KEY`, `MP_ACCESS_TOKEN`). S6/S7 (Play) quedan para después.
+
+**I1 · Idioma y moneda** — Castellano e inglés (clave = texto en castellano, `src/i18n.js`
+del front); el idioma del perfil manda cuando hay cuenta. Monedas: USD, ARS, EUR, MXN,
+CLP, COP, UYU, PEN, BRL. Pendiente: los mensajes de error del back siguen en castellano.
