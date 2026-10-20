@@ -264,7 +264,11 @@ export class MonasaferService {
 
   // ---- Cálculo ----
 
-  /** Todo lo que el motor necesita, desde el mes actual. El front lo usa para calcular al instante. */
+  /**
+   * Todo lo que el motor necesita, desde el mes actual. El front lo usa para calcular al
+   * instante. Los usos traen también el mes anterior, para sugerir subir una reserva que
+   * se pasó (M2); el motor solo mira los del mes que calcula.
+   */
   async datos(usuarioId: string): Promise<Datos & { mesActual: string }> {
     const id = oid(usuarioId);
     const actual = mesDe(this.hoy());
@@ -272,7 +276,9 @@ export class MonasaferService {
       this.usuario(usuarioId),
       this.gastos.find({ usuarioId: id, archivado: false }).lean(),
       this.meses.find({ usuarioId: id, mes: { $gte: actual } }).lean(),
-      this.usos.find({ usuarioId: id, mes: { $gte: actual } }).lean(),
+      this.usos
+        .find({ usuarioId: id, mes: { $gte: sumarMeses(actual, -1) } })
+        .lean(),
     ]);
     return {
       mesActual: actual,

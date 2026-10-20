@@ -220,6 +220,14 @@ describe('API de Monasafer', () => {
     const d = (await http.get('/datos').set(auth).expect(200)).body;
     expect(d.mesActual).toBe('2026-10');
     expect(d.gastos).toHaveLength(4);
+    // Los usos del mes anterior vienen para la sugerencia de M2 y no cambian el cálculo
+    await http
+      .post(`/gastos/${tr.id}/usos`)
+      .set(auth)
+      .send({ mes: '2026-09', monto: USD(260) })
+      .expect(201);
+    const d2 = (await http.get('/datos').set(auth)).body;
+    expect(d2.usos.map((u: { mes: string }) => u.mes)).toContain('2026-09');
 
     // Archivar saca el gasto de todo
     await http.delete(`/gastos/${tr.id}`).set(auth).expect(200);
