@@ -31,11 +31,11 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | B5 | API de reservas (proporcional y manual, usos) | P0 | hecha | Claude | B4 |
 | B6 | `GET /meses/:mes` y `GET /proyeccion` con el motor | P0 | hecha | Claude | B4 |
 | C1 | Propuestas visuales del mono y de la pantalla del mes | P0 | lista | Ambos | |
-| C2 | Pantalla del mes: balance, mono y lista de gastos | P0 | lista | Claude | C1, B6 |
-| C3 | Alta rápida de gasto | P0 | lista | Claude | C2 |
-| C4 | Navegación entre meses con animación | P0 | lista | Claude | C2 |
-| C5 | Reservas en el front (frasco que se vacía, cargar usos) | P0 | lista | Claude | C2, B5 |
-| C6 | Login y onboarding (saldo, ingreso, primeros fijos) con el mono | P0 | lista | Claude | B2, C2 |
+| C2 | Pantalla del mes: balance, mono y lista de gastos | P0 | hecha | Claude | C1, B6 |
+| C3 | Alta rápida de gasto | P0 | hecha | Claude | C2 |
+| C4 | Navegación entre meses con animación | P0 | hecha | Claude | C2 |
+| C5 | Reservas en el front (frasco que se vacía, cargar usos) | P0 | hecha | Claude | C2, B5 |
+| C6 | Login y onboarding (saldo, ingreso, primeros fijos) con el mono | P0 | en curso | Claude | B2, C2 |
 | C7 | Mobile primero y PWA instalable | P1 | lista | Claude | C2 |
 | D1 | Estados y animaciones del mono según el balance | P1 | lista | Claude | C1, C2 |
 | D2 | Gráfico de ahorro proyectado a 12 meses | P1 | lista | Claude | C4 |
@@ -44,7 +44,7 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | E2 | Cuenta compartida (pareja) | P2 | lista | Ambos | B2 |
 | E3 | Dominio propio | P2 | bloqueada | Fede | |
 
-Orden sugerido: A3 → C2 → C3 → C5 → C4 → C6 (el back de B2-B6 ya está, falta conectarlo a la base); C1 en
+Orden sugerido: A3 (conectar la base en prod) → C6 → C1 → D1 → C7 → D2 → A5; C1 en
 paralelo desde ya, para que Fede elija el mono mientras se arma la API.
 
 ---
@@ -76,6 +76,8 @@ mueve el balance).
 **B2-B6 · API** — Hechas el 20/10/2026, probadas con `mongodb-memory-server` (`src/datos/api.spec.ts`). En prod se activan cuando esté `MONGO_URI` (A3). Endpoints en CLAUDE.md. Criterios originales de B2: `POST /auth/registro` y `POST /auth/login` (email +
 contraseña con scrypt), token firmado con `AUTH_SECRET`, guard global, cada consulta
 filtra por `usuarioId`. Tests de que un usuario no ve datos de otro.
+
+**C2-C5 · Front de la pantalla del mes** — Hechas el 20/10/2026 (versión 1, con el mono provisorio): login/registro o demo, hoja de alta y edición, pagar con un toque, usos de reserva, saldo e ingreso, aviso de cobro, navegación de meses con flechas, teclado y deslizar. Probado de punta a punta con Playwright contra un Mongo en memoria. C6 en curso: hoy el onboarding es solo la hoja de saldo e ingreso al crear la cuenta.
 
 **C1 · Propuestas visuales** — 2 o 3 variantes del mono (SVG) y de la pantalla del mes,
 publicadas para que Fede elija. Estados del mono: feliz (ahorro), nervioso (cerca de
