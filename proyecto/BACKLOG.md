@@ -31,6 +31,19 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | B5 | API de reservas (proporcional y manual, usos) | P0 | hecha | Claude | B4 |
 | B6 | `GET /meses/:mes` y `GET /proyeccion` con el motor | P0 | hecha | Claude | B4 |
 | B7 | Entrar con Google (Google Identity Services, sin Firebase) | P1 | en revisión | Ambos | B2 |
+| L1 | 🚨 Recupero de contraseña por email (link de 1 h, Resend) | P0 | en curso | Ambos | B2 |
+| L2 | 🚨 Borrar la cuenta y todos los datos (en la app y página web) | P0 | en curso | Claude | B2 |
+| L3 | 🚨 Política de privacidad (borrador) y revisión de Fede | P0 | en curso | Ambos | |
+| L4 | 🚨 Términos y condiciones (borrador), aceptación al crear cuenta | P0 | en curso | Ambos | |
+| L5 | 🚨 Email de contacto `hola@monasafer.com` (reenvío de Cloudflare) | P0 | lista | Fede | |
+| L6 | 🚨 Límite de intentos en login, registro y recupero | P0 | en curso | Claude | B2 |
+| L7 | 🚨 Prueba de punta a punta en monasafer.com con la cuenta real de Fede | P0 | lista | Ambos | L1-L6 |
+| L8 | Respaldo de la base (Atlas M0 no tiene backups automáticos) | P1 | lista | Ambos | |
+| L9 | Cuenta de Google Play Developer (USD 25) y verificación de identidad | P0 | lista | Fede | |
+| L10 | Proyecto Android de la TWA con Bubblewrap y `assetlinks.json` | P0 | lista | Claude | L9 |
+| L11 | Ficha de Play: textos, ícono, portada y capturas | P0 | lista | Claude | |
+| L12 | Formularios de la consola (seguridad de datos, clasificación, financiero, acceso) | P0 | lista | Ambos | L3, L9 |
+| L13 | Prueba cerrada con 12+ testers durante 14 días y pedido de producción | P0 | lista | Fede | L10-L12 |
 | C1 | Propuestas visuales del mono y de la pantalla del mes | P0 | lista | Ambos | |
 | C2 | Pantalla del mes: balance, mono y lista de gastos | P0 | hecha | Claude | C1, B6 |
 | C3 | Alta rápida de gasto | P0 | hecha | Claude | C2 |
@@ -206,3 +219,9 @@ contraseña se borra y las sesiones anteriores se cierran (`sesionesDesde`): esa
 nunca verificó el email y pudo haberla creado otra persona para quedarse adentro. Código
 deployado el 20/10; el botón aparece cuando esté el Client ID (Fede lo crea en Google
 Cloud Console, PREGUNTAS B7.1).
+
+### Épica L · Salida a producción y Play Store (20/10/2026)
+
+🚨 = bloquea la salida en la web del 21/10. Play Store no puede salir a producción antes
+de ~14 días por la prueba cerrada obligatoria. Detalle y porqué en
+[LANZAMIENTO.md](LANZAMIENTO.md).
