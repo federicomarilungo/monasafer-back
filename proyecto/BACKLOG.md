@@ -44,6 +44,7 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | M2 | Al mes siguiente, sugerir subir el monto de una reserva que se pasó | P1 | hecha | Claude | M1 |
 | M3 | Al pagar: animación que muestre el impacto en "Saldo hoy" y "Por gastar", con sonido | P1 | hecha | Claude | C2 |
 | M4 | Sonidos satisfactorios en toda la app (estilo Tricky Towers), con botón para silenciar | P1 | hecha | Claude | M3 |
+| M5 | Hoja de gasto: duración (este mes / varios / siempre) separada de "es una reserva" | P1 | hecha | Claude | C3 |
 | E1 | Recordatorio de vencimientos y día de cobro | P2 | lista | Claude | B4 |
 | E2 | Cuenta compartida (pareja) | P2 | lista | Ambos | B2 |
 | E3 | Dominio propio | P2 | bloqueada | Fede | |
@@ -97,6 +98,8 @@ general, sonidos satisfactorios estilo Tricky Towers al realizar acciones."
   que vuela de un número al otro y el mono atrapa la moneda; sonido de moneda.
 - M4: sonidos generados con Web Audio (sin archivos): pagar, agregar gasto, usar reserva,
   cobrar ingreso, cambiar de mes, error. Botón 🔊/🔇 que se recuerda por navegador.
+
+**M5 · Hoja de gasto** — Hecha el 20/10/2026 a pedido de Fede: duración y reserva son ejes independientes; "Varios meses" con − N + (sugerencia 3) y el último mes en palabras, sin calendario; íconos en grilla con scroll vertical. Se traduce al modelo de siempre (puntual/fijo/reserva + mesFin + recurrente).
 
 **C1 · Propuestas visuales** — 2 o 3 variantes del mono (SVG) y de la pantalla del mes,
 publicadas para que Fede elija. Estados del mono: feliz (ahorro), nervioso (cerca de
