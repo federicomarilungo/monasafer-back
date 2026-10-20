@@ -48,6 +48,10 @@ fuente.
 - Las dudas no frenan: van a PREGUNTAS.md con una recomendación. 🔴 bloquea, 🟢 se sigue
   la recomendación si Fede no responde en el ciclo siguiente.
 - Con Fede: sugerencias ("convendría que…"), nunca en imperativo.
+- Lo que el entorno cloud no alcanza (cargar secretos en DO, queries o escrituras en
+  Mongo) se hace en local: se le pide a Fede que avise cuando esté en su PC para correrlo
+  con Remote Control, y mientras se sigue con el resto (Fede, 20/10/2026). Las lecturas de
+  rutina van por `POST /api/admin/consulta`.
 - El ciclo automático (skill [`ciclo-autonomo`](../.claude/skills/ciclo-autonomo/SKILL.md))
   trabaja hasta 3 tareas por vuelta, cada una deployada y verificada.
 
