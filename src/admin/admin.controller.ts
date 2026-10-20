@@ -11,8 +11,11 @@ import {
 import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { AdminKeyGuard } from './admin.guard';
+import { Public } from '../auth/public.decorator';
 import { ConsultaInvalida, validarConsulta } from './consulta';
 
+// Público para el guard de usuarios: lo protege su propia clave (AdminKeyGuard).
+@Public()
 @Controller('admin')
 @UseGuards(AdminKeyGuard)
 export class AdminController {

@@ -25,11 +25,11 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | A5 | CI con tests en los dos repos | P1 | lista | Claude | A1 |
 | A6 | Activar el ciclo autónomo (tarea programada) | P0 | lista | Ambos | A4 |
 | B1 | Motor de cálculo (balance, fijos con vencimiento, reservas, proyección) | P0 | hecha | Claude | A2 |
-| B2 | Login y registro (email + contraseña, token firmado) | P0 | lista | Claude | A3 |
-| B3 | API de perfil: saldo, ingreso mensual, cobrar ingreso | P0 | lista | Claude | B2 |
-| B4 | API de gastos puntuales y fijos (alta, edición, monto por mes, pagar) | P0 | lista | Claude | B1, B2 |
-| B5 | API de reservas (proporcional y manual, usos) | P0 | lista | Claude | B4 |
-| B6 | `GET /meses/:mes` y `GET /proyeccion` con el motor | P0 | lista | Claude | B4 |
+| B2 | Login y registro (email + contraseña, token firmado) | P0 | hecha | Claude | A3 |
+| B3 | API de perfil: saldo, ingreso mensual, cobrar ingreso | P0 | hecha | Claude | B2 |
+| B4 | API de gastos puntuales y fijos (alta, edición, monto por mes, pagar) | P0 | hecha | Claude | B1, B2 |
+| B5 | API de reservas (proporcional y manual, usos) | P0 | hecha | Claude | B4 |
+| B6 | `GET /meses/:mes` y `GET /proyeccion` con el motor | P0 | hecha | Claude | B4 |
 | C1 | Propuestas visuales del mono y de la pantalla del mes | P0 | lista | Ambos | |
 | C2 | Pantalla del mes: balance, mono y lista de gastos | P0 | lista | Claude | C1, B6 |
 | C3 | Alta rápida de gasto | P0 | lista | Claude | C2 |
@@ -44,7 +44,7 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | E2 | Cuenta compartida (pareja) | P2 | lista | Ambos | B2 |
 | E3 | Dominio propio | P2 | bloqueada | Fede | |
 
-Orden sugerido: A3 → B2 → B3 → B4 → B6 → C2 → C3 → B5 → C5 → C4 → C6; C1 en
+Orden sugerido: A3 → C2 → C3 → C5 → C4 → C6 (el back de B2-B6 ya está, falta conectarlo a la base); C1 en
 paralelo desde ya, para que Fede elija el mono mientras se arma la API.
 
 ---
@@ -73,7 +73,7 @@ en INFRA.md. Ojo: DigitalOcean necesita acceso de GitHub a los repos de
 en cuotas, transporte manual, ingreso sin cobrar, monto distinto en un mes, pagar no
 mueve el balance).
 
-**B2 · Login** — Criterios: `POST /auth/registro` y `POST /auth/login` (email +
+**B2-B6 · API** — Hechas el 20/10/2026, probadas con `mongodb-memory-server` (`src/datos/api.spec.ts`). En prod se activan cuando esté `MONGO_URI` (A3). Endpoints en CLAUDE.md. Criterios originales de B2: `POST /auth/registro` y `POST /auth/login` (email +
 contraseña con scrypt), token firmado con `AUTH_SECRET`, guard global, cada consulta
 filtra por `usuarioId`. Tests de que un usuario no ve datos de otro.
 

@@ -35,8 +35,27 @@ npm run build
 MONGO_URI=... npm run start:dev    # local, puerto 3001
 ```
 
-Endpoints actuales: `GET /ping`, `GET /salud` (dice si la base está conectada) y
-`POST /admin/consulta` (abajo). En prod todo cuelga de `/api`
+## API
+
+Sin `MONGO_URI` la API levanta solo con `GET /ping`, `GET /salud` y `POST /admin/consulta`
+(`AppModule.crear()`). Con base suma `DatosModule` (`src/datos/`):
+
+| Endpoint | Qué hace |
+|---|---|
+| `POST /auth/registro`, `POST /auth/login` (públicos) | `{email, clave, nombre?}` → `{token, perfil}`. Token JWT de 30 días firmado con `AUTH_SECRET` |
+| `GET/PATCH /perfil` | nombre, moneda, saldo, `ingresoMensual {monto, diaCobro}` |
+| `POST /perfil/cobrar-ingreso` | suma el ingreso al saldo, una vez por mes |
+| `GET/POST /gastos`, `PATCH/DELETE /gastos/:id` | alta, edición y archivado (DELETE archiva) |
+| `PUT /gastos/:id/meses/:mes` | `{montoDelMes}`: monto distinto solo ese mes (null lo saca) |
+| `POST/DELETE /gastos/:id/meses/:mes/pagar` | pagar descuenta del saldo; desmarcar lo devuelve |
+| `GET/POST /gastos/:id/usos`, `DELETE /usos/:id` | usos de reserva (bajan el saldo) |
+| `GET /datos` | perfil + gastos + estados + usos desde el mes actual, para que el front calcule |
+| `GET /meses/:mes`, `GET /proyeccion?hasta=AAAA-MM` | resumen con el motor (hasta 24 meses) |
+
+Todo pide `Authorization: Bearer <token>` (guard global `UsuarioGuard`) salvo lo marcado
+con `@Public()`, y cada consulta filtra por el usuario: ver el test "un usuario no puede
+ver ni tocar lo de otro" en `src/datos/api.spec.ts`, que prueba la API entera contra
+`mongodb-memory-server`. Los meses se calculan en hora argentina (`TZ` en `main.ts`). En prod todo cuelga de `/api`
 (https://monasafer-4lh7x.ondigitalocean.app/api/...).
 
 ## Consultas a la base desde el entorno cloud

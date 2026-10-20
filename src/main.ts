@@ -1,8 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
+// Los meses se calculan en hora argentina salvo que se diga otra cosa.
+process.env.TZ ??= 'America/Argentina/Buenos_Aires';
+
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule.crear());
   const origenes = (process.env.CORS_ORIGINS ?? 'http://localhost:5173')
     .split(',')
     .map((o) => o.trim())

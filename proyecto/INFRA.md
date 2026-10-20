@@ -17,7 +17,7 @@ Back y front comparten dominio: el back está en la ruta `/api` (DO saca el pref
 | `back` (`/api`) | service, `apps-s-1vcpu-0.5gb` (~USD 5/mes, autorizado por Fede el 20/10/2026), puerto 3001 | `monasafer-back` | `npm run build` / `npm run start:prod` |
 | `front` (`/`) | static site, `npm run build` → `dist/` | `monasafer-front` | gratis |
 
-Variables: back `MONGO_URI` (falta, A3) y `ADMIN_API_KEY` (consultas de Claude, ver CLAUDE.md); front `VITE_API_URL=/api` (en build).
+Variables: back `MONGO_URI` (falta, A3) `ADMIN_API_KEY` (consultas de Claude, ver CLAUDE.md) y `AUTH_SECRET` (firma los logins, 32+ caracteres); front `VITE_API_URL=/api` (en build).
 
 ## MongoDB Atlas
 

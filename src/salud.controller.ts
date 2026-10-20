@@ -2,7 +2,9 @@ import { Controller, Get } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { Optional } from '@nestjs/common';
+import { Public } from './auth/public.decorator';
 
+@Public()
 @Controller()
 export class SaludController {
   constructor(
