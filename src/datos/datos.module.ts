@@ -12,11 +12,19 @@ import {
   MesGastoSchema,
   UsoReservaDb,
   UsoReservaSchema,
+  Suscripcion,
+  SuscripcionSchema,
+  UsoIa,
+  UsoIaSchema,
   Usuario,
   UsuarioSchema,
 } from './esquemas';
 import { MonasaferController } from './monasafer.controller';
 import { MonasaferService } from './monasafer.service';
+import { PremiumController } from '../premium/premium.controller';
+import { PremiumService } from '../premium/premium.service';
+import { MercadoPago } from '../premium/mercadopago';
+import { ClienteIa } from '../premium/asistente';
 
 @Module({
   imports: [
@@ -25,11 +33,16 @@ import { MonasaferService } from './monasafer.service';
       { name: GastoDb.name, schema: GastoSchema },
       { name: MesGasto.name, schema: MesGastoSchema },
       { name: UsoReservaDb.name, schema: UsoReservaSchema },
+      { name: Suscripcion.name, schema: SuscripcionSchema },
+      { name: UsoIa.name, schema: UsoIaSchema },
     ]),
   ],
-  controllers: [MonasaferController],
+  controllers: [MonasaferController, PremiumController],
   providers: [
     MonasaferService,
+    PremiumService,
+    MercadoPago,
+    ClienteIa,
     { provide: Tokens, useFactory: () => Tokens.desdeEntorno() },
     { provide: SESIONES, useExisting: MonasaferService },
     VerificadorGoogle,

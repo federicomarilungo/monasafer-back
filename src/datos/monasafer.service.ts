@@ -48,12 +48,13 @@ export class MonasaferService implements Sesiones {
 
   // ---- Usuarios y perfil ----
 
-  async registrar(email: string, clave: string, nombre: string) {
+  async registrar(email: string, clave: string, nombre: string, idioma = 'es') {
     if (await this.usuarios.exists({ email }))
       throw new ConflictException('Ya hay una cuenta con ese email');
     const u = await this.usuarios.create({
       email,
       nombre,
+      idioma,
       hashClave: hashClave(clave),
     });
     return { token: this.tokens.generar(u.id), perfil: this.perfilPublico(u) };
@@ -200,7 +201,7 @@ export class MonasaferService implements Sesiones {
   async actualizarPerfil(
     usuarioId: string,
     cambios: Partial<
-      Pick<Usuario, 'nombre' | 'moneda' | 'saldo' | 'ingresoMensual'>
+      Pick<Usuario, 'nombre' | 'moneda' | 'idioma' | 'saldo' | 'ingresoMensual'>
     >,
   ) {
     const u = await this.usuarios.findByIdAndUpdate(
@@ -483,6 +484,15 @@ export class MonasaferService implements Sesiones {
       nombre: u.nombre,
       google: !!u.googleSub,
       moneda: u.moneda,
+      idioma: u.idioma ?? 'es',
+      premium: {
+        activo: !!u.premiumHasta && u.premiumHasta.getTime() > Date.now(),
+        hasta: u.premiumHasta ?? null,
+      },
+      usosGratis: {
+        metricas: u.usosGratis?.metricas ?? 3,
+        asistente: u.usosGratis?.asistente ?? 10,
+      },
       saldo: u.saldo,
       ingresoMensual: u.ingresoMensual
         ? { monto: u.ingresoMensual.monto, diaCobro: u.ingresoMensual.diaCobro }

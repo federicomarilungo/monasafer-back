@@ -9,6 +9,16 @@ export class IngresoMensual {
   @Prop({ required: true, min: 1, max: 31 }) diaCobro: number;
 }
 
+export const MONEDAS = ['USD', 'ARS', 'EUR', 'MXN', 'CLP', 'COP', 'UYU', 'PEN', 'BRL'];
+export const IDIOMAS = ['es', 'en'];
+
+/** Usos gratis de lo premium que le quedan a quien no paga (S1). */
+@Schema({ _id: false })
+export class UsosGratis {
+  @Prop({ default: 3 }) metricas: number;
+  @Prop({ default: 10 }) asistente: number;
+}
+
 @Schema({ collection: 'usuarios', timestamps: true })
 export class Usuario {
   @Prop({ required: true, unique: true, lowercase: true, trim: true })
@@ -23,7 +33,12 @@ export class Usuario {
   @Prop({ type: String, default: null }) recuperoHash: string | null;
   @Prop({ type: Date, default: null }) recuperoVence: Date | null;
   @Prop({ default: '' }) nombre: string;
-  @Prop({ default: 'USD', enum: ['USD', 'ARS'] }) moneda: string;
+  @Prop({ default: 'USD', enum: MONEDAS }) moneda: string;
+  @Prop({ default: 'es', enum: IDIOMAS }) idioma: string;
+  /** Premium vale hasta esta fecha (la renueva cada pago de la suscripción). */
+  @Prop({ type: Date, default: null }) premiumHasta: Date | null;
+  @Prop({ type: SchemaFactory.createForClass(UsosGratis), default: () => ({}) })
+  usosGratis: UsosGratis;
   @Prop({ default: 0 }) saldo: number;
   @Prop({ type: SchemaFactory.createForClass(IngresoMensual), default: null })
   ingresoMensual: IngresoMensual | null;
@@ -79,3 +94,31 @@ export class UsoReservaDb {
   @Prop({ default: '' }) nota: string;
 }
 export const UsoReservaSchema = SchemaFactory.createForClass(UsoReservaDb);
+
+/** Suscripción premium pagada por la web (S8). Una por cada intento de suscribirse. */
+@Schema({ collection: 'suscripciones', timestamps: true })
+export class Suscripcion {
+  @Prop({ type: Types.ObjectId, required: true, index: true })
+  usuarioId: Types.ObjectId;
+  @Prop({ required: true, default: 'mercadopago' }) proveedor: string;
+  @Prop({ type: String, default: null, index: true }) externoId: string | null;
+  /** pending · authorized · paused · cancelled (los de Mercado Pago). */
+  @Prop({ default: 'pending' }) estado: string;
+  @Prop({ required: true }) monto: number;
+  @Prop({ required: true }) moneda: string;
+  @Prop({ type: Date, default: null }) proximoCobro: Date | null;
+}
+export const SuscripcionSchema = SchemaFactory.createForClass(Suscripcion);
+
+/** Una llamada a la IA: tokens y costo estimado, para el tope diario (S3). */
+@Schema({ collection: 'uso_ia', timestamps: true })
+export class UsoIa {
+  @Prop({ type: Types.ObjectId, required: true, index: true })
+  usuarioId: Types.ObjectId;
+  @Prop({ required: true, index: true }) dia: string;
+  @Prop({ required: true }) modelo: string;
+  @Prop({ default: 0 }) entrada: number;
+  @Prop({ default: 0 }) salida: number;
+  @Prop({ default: 0 }) costoUsd: number;
+}
+export const UsoIaSchema = SchemaFactory.createForClass(UsoIa);

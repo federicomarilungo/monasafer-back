@@ -6,6 +6,8 @@ import { AppModule } from '../app.module';
 import { MonasaferService } from './monasafer.service';
 import { VerificadorGoogle } from '../auth/google';
 import { Correo } from '../auth/correo';
+import { ClienteIa } from '../premium/asistente';
+import { MercadoPago } from '../premium/mercadopago';
 
 // Prueba la API entera contra un Mongo en memoria. Hoy = 15/10/2026.
 jest.setTimeout(60000);
@@ -16,6 +18,8 @@ describe('API de Monasafer', () => {
   let app: INestApplication;
   let http: ReturnType<typeof request>;
   const correos: { para: string; html: string }[] = [];
+  let mp: MercadoPago;
+  const preapprovals = new Map<string, { id: string; status: string; external_reference: string; next_payment_date: string }>();
 
   beforeAll(async () => {
     process.env.AUTH_SECRET = 's'.repeat(40);
@@ -35,6 +39,33 @@ describe('API de Monasafer', () => {
         correos.push({ para, html });
         return true;
       });
+    // IA falsa: siempre propone la campera en 6 cuotas.
+    const ia = mod.get(ClienteIa);
+    jest.spyOn(ia, 'configurado').mockReturnValue(true);
+    jest.spyOn(ia, 'preguntar').mockImplementation(async () => ({
+      id: 'msg', type: 'message', role: 'assistant', model: 'claude-haiku-5-5',
+      stop_reason: 'tool_use', stop_sequence: null,
+      usage: { input_tokens: 1000, output_tokens: 200 },
+      content: [
+        { type: 'text', text: '¿La agrego así?' },
+        { type: 'tool_use', id: 't1', name: 'crear_gasto', input: {
+          nombre: 'Campera', emoji: '🧥', monto_mensual: 50, tipo: 'fijo',
+          mes_inicio: '2026-10', cantidad_meses: 6, modo_reserva: null } },
+      ],
+    }) as never);
+    // Mercado Pago falso en memoria.
+    mp = mod.get(MercadoPago);
+    jest.spyOn(mp, 'configurado').mockReturnValue(true);
+    jest.spyOn(mp, 'crearSuscripcion').mockImplementation(async (p) => {
+      const id = `pre-${preapprovals.size + 1}`;
+      preapprovals.set(id, { id, status: 'pending', external_reference: p.usuarioId, next_payment_date: '2026-11-20T10:00:00.000-03:00' });
+      return { id, status: 'pending', init_point: `https://mp.test/checkout/${id}` };
+    });
+    jest.spyOn(mp, 'leer').mockImplementation(async (id) => preapprovals.get(id)!);
+    jest.spyOn(mp, 'cancelar').mockImplementation(async (id) => {
+      preapprovals.get(id)!.status = 'cancelled';
+      return preapprovals.get(id)!;
+    });
     // Credencial falsa "google:<sub>:<email>" en lugar del ID token firmado por Google.
     jest
       .spyOn(mod.get(VerificadorGoogle), 'verificar')
@@ -229,6 +260,59 @@ describe('API de Monasafer', () => {
       .post('/auth/login')
       .send({ email: 'fuerza@test.com', clave: 'x' })
       .expect(429);
+  });
+
+  it('premium: vistas gratis de métricas y del asistente, después pide suscripción', async () => {
+    const c = await cuenta('gratis@test.com');
+    const p = await http.get('/perfil').set(c.auth).expect(200);
+    expect(p.body.premium.activo).toBe(false);
+    expect(p.body.usosGratis).toEqual({ metricas: 3, asistente: 10 });
+    for (const quedan of [2, 1, 0]) {
+      const r = await http.post('/premium/usar').set(c.auth).send({ funcion: 'metricas' }).expect(200);
+      expect(r.body).toMatchObject({ permitido: true, quedan });
+    }
+    const no = await http.post('/premium/usar').set(c.auth).send({ funcion: 'metricas' }).expect(200);
+    expect(no.body.permitido).toBe(false);
+
+    const a = await http.post('/asistente').set(c.auth)
+      .send({ mensajes: [{ rol: 'usuario', texto: 'compré una campera en 6 cuotas de 50' }] })
+      .expect(200);
+    expect(a.body.texto).toBe('¿La agrego así?');
+    expect(a.body.propuestas[0]).toMatchObject({ accion: 'crear_gasto', gasto: { monto: 5000, mesFin: '2027-03' } });
+    expect(a.body.quedan).toBe(9);
+    for (let i = 0; i < 9; i++)
+      await http.post('/asistente').set(c.auth).send({ mensajes: [{ rol: 'usuario', texto: 'hola' }] }).expect(200);
+    const fin = await http.post('/asistente').set(c.auth).send({ mensajes: [{ rol: 'usuario', texto: 'hola' }] }).expect(200);
+    expect(fin.body.requierePremium).toBe(true);
+  });
+
+  it('suscripción web: Mercado Pago autoriza, la notificación activa premium; borrar la cuenta la cancela', async () => {
+    const c = await cuenta('paga@test.com');
+    const conf = await http.get('/premium/config').expect(200);
+    expect(conf.body).toMatchObject({ pagos: true, asistente: true, precio: { moneda: 'ARS' } });
+    const s = await http.post('/premium/suscribir').set(c.auth).send({}).expect(200);
+    expect(s.body.url).toMatch(/^https:\/\/mp\.test\/checkout\//);
+    const id = s.body.url.split('/').pop();
+    // la persona paga en Mercado Pago
+    preapprovals.get(id)!.status = 'authorized';
+    await http.post('/pagos/mercadopago').send({ type: 'subscription_preapproval', data: { id } }).expect(200);
+    const p = await http.get('/perfil').set(c.auth).expect(200);
+    expect(p.body.premium.activo).toBe(true);
+    expect(new Date(p.body.premium.hasta).toISOString().slice(0, 10)).toBe('2026-11-23');
+    const u = await http.post('/premium/usar').set(c.auth).send({ funcion: 'metricas' }).expect(200);
+    expect(u.body).toMatchObject({ permitido: true, premium: true });
+    const e = await http.get('/premium').set(c.auth).expect(200);
+    expect(e.body.suscripcion.estado).toBe('authorized');
+
+    // una notificación de una suscripción ajena (otra referencia) no activa a nadie
+    const otra = await cuenta('colado@test.com');
+    preapprovals.set('pre-trucho', { id: 'pre-trucho', status: 'authorized', external_reference: 'otro', next_payment_date: '2027-01-01' });
+    await http.post('/pagos/mercadopago').send({ type: 'subscription_preapproval', data: { id: 'pre-trucho' } }).expect(200);
+    const po = await http.get('/perfil').set(otra.auth).expect(200);
+    expect(po.body.premium.activo).toBe(false);
+
+    await http.delete('/perfil').set(c.auth).send({ confirmacion: 'paga@test.com' }).expect(200);
+    expect(mp.cancelar).toHaveBeenCalledWith(id);
   });
 
   it('el flujo completo del mes: saldo, gastos, pagar, reservas y proyección', async () => {

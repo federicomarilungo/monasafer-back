@@ -19,12 +19,17 @@ import { Req } from '@nestjs/common';
 type ReqHttp = { headers: Record<string, unknown>; ip?: string };
 const MIN = 60 * 1000;
 import { MonasaferService } from './monasafer.service';
+import { PremiumService } from '../premium/premium.service';
 import * as v from './validar';
+import { IDIOMAS, MONEDAS } from './esquemas';
 import { BadRequestException } from '@nestjs/common';
 
 @Controller()
 export class MonasaferController {
-  constructor(private readonly s: MonasaferService) {}
+  constructor(
+    private readonly s: MonasaferService,
+    private readonly premium: PremiumService,
+  ) {}
 
   private readonly limite = new Limitador();
 
@@ -37,6 +42,7 @@ export class MonasaferController {
       v.email(b.email),
       v.clave(b.clave),
       v.texto(b.nombre, 'nombre', 60, false),
+      b.idioma === 'en' ? 'en' : 'es',
     );
   }
 
@@ -87,12 +93,15 @@ export class MonasaferController {
   }
 
   @Delete('perfil')
-  borrarCuenta(@UsuarioId() u: string, @Body() body: unknown) {
+  async borrarCuenta(@UsuarioId() u: string, @Body() body: unknown) {
     const b = v.objeto(body);
-    return this.s.borrarCuenta(
-      u,
-      typeof b.confirmacion === 'string' ? b.confirmacion : '',
-    );
+    const confirmacion =
+      typeof b.confirmacion === 'string' ? b.confirmacion : '';
+    const perfil = await this.s.perfil(u);
+    if (confirmacion.trim().toLowerCase() !== perfil.email)
+      throw new BadRequestException('Escribí tu email para confirmar');
+    await this.premium.borrarDatos(u);
+    return this.s.borrarCuenta(u, confirmacion);
   }
 
   @Public()
@@ -113,9 +122,14 @@ export class MonasaferController {
     if (b.nombre !== undefined)
       cambios.nombre = v.texto(b.nombre, 'nombre', 60, false);
     if (b.moneda !== undefined) {
-      if (b.moneda !== 'USD' && b.moneda !== 'ARS')
-        throw new BadRequestException('moneda: USD o ARS');
-      cambios.moneda = b.moneda;
+      if (!MONEDAS.includes(b.moneda as string))
+        throw new BadRequestException(`moneda: ${MONEDAS.join(', ')}`);
+      cambios.moneda = b.moneda as string;
+    }
+    if (b.idioma !== undefined) {
+      if (!IDIOMAS.includes(b.idioma as string))
+        throw new BadRequestException('idioma: es o en');
+      cambios.idioma = b.idioma as string;
     }
     if (b.saldo !== undefined) cambios.saldo = v.saldo(b.saldo);
     if (b.ingresoMensual !== undefined) {

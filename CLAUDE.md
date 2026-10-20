@@ -48,7 +48,7 @@ Sin `MONGO_URI` la API levanta solo con `GET /ping`, `GET /salud` y `POST /admin
 | `POST /auth/recuperar` (público) | `{codigo, clave}` → `{token, perfil}`; cierra las otras sesiones |
 | `DELETE /perfil` | `{confirmacion: <email>}` borra la cuenta y todos sus gastos, meses y usos (lo exige Play) |
 | `GET /auth/config` (público) | `{googleClientId}`: el front muestra el botón solo si hay. Client ID en `src/auth/google.ts` o `GOOGLE_CLIENT_ID` |
-| `GET/PATCH /perfil` | nombre, moneda, saldo, `ingresoMensual {monto, diaCobro}` |
+| `GET/PATCH /perfil` | nombre, moneda (USD, ARS, EUR, MXN, CLP, COP, UYU, PEN, BRL), idioma (es, en), saldo, `ingresoMensual {monto, diaCobro}` |
 | `POST /perfil/cobrar-ingreso` | suma el ingreso al saldo, una vez por mes |
 | `GET/POST /gastos`, `PATCH/DELETE /gastos/:id` | alta, edición y archivado (DELETE archiva) |
 | `PUT /gastos/:id/meses/:mes` | `{montoDelMes}`: monto distinto solo ese mes (null lo saca) |
@@ -56,6 +56,25 @@ Sin `MONGO_URI` la API levanta solo con `GET /ping`, `GET /salud` y `POST /admin
 | `GET/POST /gastos/:id/usos`, `DELETE /usos/:id` | usos de reserva (bajan el saldo) |
 | `GET /datos` | perfil + gastos + estados + usos desde el mes actual, para que el front calcule |
 | `GET /meses/:mes`, `GET /proyeccion?hasta=AAAA-MM` | resumen con el motor (hasta 24 meses) |
+
+## Premium (épica S)
+
+`src/premium/`. Quien no paga tiene usos gratis guardados en el usuario (`usosGratis`:
+3 vistas de métricas, 10 mensajes al asistente); premium vale hasta `premiumHasta`.
+- `POST /premium/usar {funcion}`: gasta una vista gratis (o nada si es premium).
+- `POST /asistente {mensajes:[{rol, texto}]}`: Claude Haiku 5.5 (`@anthropic-ai/sdk`,
+  `ANTHROPIC_API_KEY`) con herramientas que solo **proponen** (`crear_gasto`,
+  `pagar_gasto`, `usar_reserva`); el front muestra cada propuesta y la persona confirma con
+  los endpoints de siempre. Prompt y validación en `src/premium/asistente.ts`. Cada llamada
+  queda en `uso_ia` (tokens y costo); tope global `IA_PRESUPUESTO_DIARIO_USD` (default 1)
+  y 60 mensajes por día por premium. Si cambiás de modelo, agregá su precio en `PRECIOS`.
+- Suscripción web con Mercado Pago (`MP_ACCESS_TOKEN`, precio `PREMIUM_PRECIO_ARS`,
+  default 3000): `POST /premium/suscribir` crea el preapproval y devuelve el link de pago;
+  `POST /pagos/mercadopago` (webhook público) relee la suscripción en la API de MP y, si
+  está `authorized`, extiende premium hasta el próximo cobro + 3 días; `POST
+  /premium/sincronizar` hace lo mismo al volver; `POST /premium/cancelar` corta la
+  renovación. Borrar la cuenta cancela la suscripción. `GET /premium/config` (público)
+  dice si pagos y asistente están activos.
 
 Login, registro, Google y recupero tienen límite de intentos por IP y por email
 (`src/auth/limite.ts`, en memoria; 429 al pasarse).
