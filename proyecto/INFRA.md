@@ -17,13 +17,13 @@ Back y front comparten dominio: el back está en la ruta `/api` (DO saca el pref
 | `back` (`/api`) | service, `apps-s-1vcpu-0.5gb` (~USD 5/mes, autorizado por Fede el 20/10/2026), puerto 3001 | `monasafer-back` | `npm run build` / `npm run start:prod` |
 | `front` (`/`) | static site, `npm run build` → `dist/` | `monasafer-front` | gratis |
 
-Variables: back `MONGO_URI` (falta, A3) `ADMIN_API_KEY` (consultas de Claude, ver CLAUDE.md) y `AUTH_SECRET` (firma los logins, 32+ caracteres); front `VITE_API_URL=/api` (en build).
+Variables (cargadas por Fede el 20/10/2026, base conectada): back `MONGO_URI` `ADMIN_API_KEY` (consultas de Claude, ver CLAUDE.md) y `AUTH_SECRET` (firma los logins, 32+ caracteres); front `VITE_API_URL=/api` (en build).
 
 ## MongoDB Atlas
 
 Mismo proyecto y cluster que abisal (`abisal-cluster`, M0 gratis, AWS us-east-1), base
 **`monasafer`**, usuario propio `monasafer_app` con readWrite solo sobre `monasafer`
-(pendiente, tarea A3). Colecciones previstas: `usuarios`, `gastos`, `meses_gasto`,
+(creado por Fede el 20/10/2026). Colecciones previstas: `usuarios`, `gastos`, `meses_gasto`,
 `usos_reserva`.
 
 ## Entorno cloud de Claude Code

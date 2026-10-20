@@ -10,12 +10,6 @@ con la recomendación si no respondés en el ciclo siguiente.
 
 ## Nuevas
 
-### A3 · Base en Atlas
-- **A3.1** 🔴 La API de Atlas no deja entrar al entorno cloud (access list por IP). Te
-  sugiero crear vos el usuario desde la web: Database Access → Add New Database User,
-  `monasafer_app`, contraseña autogenerada, rol "readWrite" sobre la base `monasafer`. Y
-  pegar la cadena de conexión como `MONGO_URI` en la app de DO cuando exista (A4).
-
 ### Producto (seguidas con la recomendación, 20/10/2026)
 - **P.1** 🟢 Multiusuario con email y contraseña desde el día 1.
 - **P.2** 🟢 Moneda una por usuario (USD o ARS), USD por defecto.
@@ -26,6 +20,7 @@ con la recomendación si no respondés en el ciclo siguiente.
 
 ## Respondidas
 
+- **A3.1** (20/10/2026): Fede creó el usuario de Atlas y cargó `MONGO_URI`, `AUTH_SECRET` y `ADMIN_API_KEY` en la app de DO. `/api/salud` da `base: true`.
 - **A1.1** (20/10/2026): Fede le dio acceso a la app de GitHub de Claude a los dos repos.
 - **Stack** (20/10/2026): back NestJS, front HTML puro (sin React). Dos repos como abisal.
 - **Costo** (20/10/2026): la app de DO de ~USD 5/mes está ok.

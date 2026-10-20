@@ -20,7 +20,7 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 |---|---|---|---|---|---|
 | A1 | Repos `monasafer-back` y `monasafer-front` con acceso de Claude | P0 | hecha | Fede | |
 | A2 | Esqueletos de los dos repos y documentos del proyecto | P0 | hecha | Claude | A1 |
-| A3 | Base `monasafer` y usuario en Atlas | P0 | bloqueada | Fede | |
+| A3 | Base `monasafer` y usuario en Atlas | P0 | hecha | Fede | |
 | A4 | App de DO (service + static site) y primer deploy | P0 | hecha | Claude | A1 |
 | A5 | CI con tests en los dos repos | P1 | lista | Claude | A1 |
 | A6 | Activar el ciclo autónomo (tarea programada) | P0 | lista | Ambos | A4 |
@@ -49,7 +49,7 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | E2 | Cuenta compartida (pareja) | P2 | lista | Ambos | B2 |
 | E3 | Dominio propio | P2 | bloqueada | Fede | |
 
-Orden sugerido: A3 (conectar la base en prod) → C6 → C1 → D1 → C7 → D2 → A5; C1 en
+Orden sugerido: C6 → C1 → D1 → C7 → D2 → A5; C1 en
 paralelo desde ya, para que Fede elija el mono mientras se arma la API.
 
 ---
