@@ -40,11 +40,15 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | D1 | Estados y animaciones del mono según el balance | P1 | lista | Claude | C1, C2 |
 | D2 | Gráfico de ahorro proyectado a 12 meses | P1 | lista | Claude | C4 |
 | D3 | Logros y rachas de ahorro | P2 | lista | Claude | D1 |
+| M1 | Reserva pasada de gasto: mostrar lo que queda en negativo | P1 | lista | Claude | C5 |
+| M2 | Al mes siguiente, sugerir subir el monto de una reserva que se pasó | P1 | lista | Claude | M1 |
+| M3 | Al pagar: animación que muestre el impacto en "Saldo hoy" y "Por gastar", con sonido | P1 | lista | Claude | C2 |
+| M4 | Sonidos satisfactorios en toda la app (estilo Tricky Towers), con botón para silenciar | P1 | lista | Claude | M3 |
 | E1 | Recordatorio de vencimientos y día de cobro | P2 | lista | Claude | B4 |
 | E2 | Cuenta compartida (pareja) | P2 | lista | Ambos | B2 |
 | E3 | Dominio propio | P2 | bloqueada | Fede | |
 
-Orden sugerido: A3 (conectar la base en prod) → C6 → C1 → D1 → C7 → D2 → A5; C1 en
+Orden sugerido: A3 (conectar la base en prod) → M3 → M4 → M1 → M2 → C6 → C1 → D1 → C7 → D2 → A5; C1 en
 paralelo desde ya, para que Fede elija el mono mientras se arma la API.
 
 ---
@@ -78,6 +82,21 @@ contraseña con scrypt), token firmado con `AUTH_SECRET`, guard global, cada con
 filtra por `usuarioId`. Tests de que un usuario no ve datos de otro.
 
 **C2-C5 · Front de la pantalla del mes** — Hechas el 20/10/2026 (versión 1, con el mono provisorio): login/registro o demo, hoja de alta y edición, pagar con un toque, usos de reserva, saldo e ingreso, aviso de cobro, navegación de meses con flechas, teclado y deslizar. Probado de punta a punta con Playwright contra un Mongo en memoria. C6 en curso: hoy el onboarding es solo la hoja de saldo e ingreso al crear la cuenta.
+
+**M1-M4 · Mejoras pedidas por Fede (20/10/2026)** — "cuando usás más de lo que tenés en
+una reserva, que aparezca en negativo; al mes siguiente puede aparecer una sugerencia de
+incrementar el monto. Cuando marcás un gasto como realizado afecta a saldo hoy y a por
+gastar: una animación que haga notorio el impacto y un sonido satisfactorio al pagar. En
+general, sonidos satisfactorios estilo Tricky Towers al realizar acciones."
+- M1: la reserva muestra `monto − usado` aunque sea negativo (en rojo, frasco vacío). El
+  balance no cambia: lo usado ya salió del saldo, la reserva no resta menos de 0.
+- M2: si en el mes anterior una reserva cerró con usado > monto, en el mes actual aparece
+  "El mes pasado gastaste X en <reserva>. ¿Subimos a X?" con un botón que edita el monto.
+  Necesita que `/datos` traiga también los usos del mes anterior.
+- M3: al pagar, "Saldo hoy" baja y "Por gastar" baja con un conteo animado, un "−US$ X"
+  que vuela de un número al otro y el mono atrapa la moneda; sonido de moneda.
+- M4: sonidos generados con Web Audio (sin archivos): pagar, agregar gasto, usar reserva,
+  cobrar ingreso, cambiar de mes, error. Botón 🔊/🔇 que se recuerda por navegador.
 
 **C1 · Propuestas visuales** — 2 o 3 variantes del mono (SVG) y de la pantalla del mes,
 publicadas para que Fede elija. Estados del mono: feliz (ahorro), nervioso (cerca de
