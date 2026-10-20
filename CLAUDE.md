@@ -73,7 +73,10 @@ Sin `MONGO_URI` la API levanta solo con `GET /ping`, `GET /salud` y `POST /admin
   `POST /pagos/mercadopago` (webhook público) relee la suscripción en la API de MP y, si
   está `authorized`, extiende premium hasta el próximo cobro + 3 días; `POST
   /premium/sincronizar` hace lo mismo al volver; `POST /premium/cancelar` corta la
-  renovación. Borrar la cuenta cancela la suscripción. `GET /premium/config` (público)
+  renovación. Si se perdió una notificación, al leer el perfil o usar algo premium con
+  premium vencido hace menos de 40 días y una suscripción activa, el back relee MP (una vez
+  por hora por usuario). Si el próximo cobro ya pasó (tarjeta rechazada), no extiende.
+  Borrar la cuenta cancela la suscripción. `GET /premium/config` (público)
   dice si pagos y asistente están activos.
 
 Login, registro, Google y recupero tienen límite de intentos por IP y por email

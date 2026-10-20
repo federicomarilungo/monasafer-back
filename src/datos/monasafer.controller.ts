@@ -111,7 +111,8 @@ export class MonasaferController {
   }
 
   @Get('perfil')
-  perfil(@UsuarioId() u: string) {
+  async perfil(@UsuarioId() u: string) {
+    await this.premium.revisarVencido(u);
     return this.s.perfil(u);
   }
 

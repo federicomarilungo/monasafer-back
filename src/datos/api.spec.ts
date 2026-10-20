@@ -8,6 +8,8 @@ import { VerificadorGoogle } from '../auth/google';
 import { Correo } from '../auth/correo';
 import { ClienteIa } from '../premium/asistente';
 import { MercadoPago } from '../premium/mercadopago';
+import { getModelToken } from '@nestjs/mongoose';
+import { Usuario } from './esquemas';
 
 // Prueba la API entera contra un Mongo en memoria. Hoy = 15/10/2026.
 jest.setTimeout(60000);
@@ -310,6 +312,19 @@ describe('API de Monasafer', () => {
     await http.post('/pagos/mercadopago').send({ type: 'subscription_preapproval', data: { id: 'pre-trucho' } }).expect(200);
     const po = await http.get('/perfil').set(otra.auth).expect(200);
     expect(po.body.premium.activo).toBe(false);
+
+    // se pierde la notificación de la renovación: al vencer, el back le pregunta a MP
+    const usuarios = app.get(getModelToken(Usuario.name));
+    await usuarios.updateOne({ email: 'paga@test.com' }, { $set: { premiumHasta: new Date(Date.now() - 1000) } });
+    preapprovals.get(id)!.next_payment_date = new Date(Date.now() + 30 * 864e5).toISOString();
+    const renovado = await http.get('/perfil').set(c.auth).expect(200);
+    expect(renovado.body.premium.activo).toBe(true);
+    // con la tarjeta rechazada (próximo cobro ya pasado) no se extiende
+    await usuarios.updateOne({ email: 'paga@test.com' }, { $set: { premiumHasta: new Date(Date.now() - 1000) } });
+    preapprovals.get(id)!.next_payment_date = new Date(Date.now() - 864e5).toISOString();
+    await http.post('/pagos/mercadopago').send({ type: 'subscription_preapproval', data: { id } }).expect(200);
+    const vencido = await http.get('/perfil').set(c.auth).expect(200);
+    expect(vencido.body.premium.activo).toBe(false);
 
     await http.delete('/perfil').set(c.auth).send({ confirmacion: 'paga@test.com' }).expect(200);
     expect(mp.cancelar).toHaveBeenCalledWith(id);

@@ -70,6 +70,7 @@ export class PremiumService {
    * usarla y cuántos le quedan. El contador vive en la base, no en el navegador.
    */
   async usar(usuarioId: string, funcion: Funcion) {
+    await this.revisarVencido(usuarioId);
     const u = await this.usuario(usuarioId);
     if (this.esPremium(u)) return { permitido: true, premium: true, quedan: null };
     const campo = `usosGratis.${funcion}`;
@@ -247,15 +248,41 @@ export class PremiumService {
   }
 
   private async extenderPremium(usuarioId: Types.ObjectId, pre: PreapprovalMp) {
-    // Vale hasta el próximo cobro, con 3 días de gracia por si el cobro se demora.
+    // Vale hasta el próximo cobro, con 3 días de gracia por si el cobro se demora. Si el
+    // próximo cobro ya pasó (MP está reintentando una tarjeta rechazada), no se extiende.
     const base = pre.next_payment_date
       ? new Date(pre.next_payment_date).getTime()
       : Date.now() + 31 * DIA_MS;
-    const hasta = new Date(Math.max(base, Date.now()) + 3 * DIA_MS);
+    if (base <= Date.now()) return;
+    const hasta = new Date(base + 3 * DIA_MS);
     await this.usuarios.updateOne(
       { _id: usuarioId, $or: [{ premiumHasta: null }, { premiumHasta: { $lt: hasta } }] },
       { $set: { premiumHasta: hasta } },
     );
+  }
+
+  /**
+   * Red de seguridad por si se perdió una notificación: si a alguien se le venció premium
+   * hace menos de 40 días y tiene una suscripción activa, se le pregunta a Mercado Pago
+   * antes de tratarlo como gratis. Como mucho una vez por hora por usuario.
+   */
+  private readonly ultimaRevision = new Map<string, number>();
+  async revisarVencido(usuarioId: string) {
+    if (!this.mp.configurado() || !Types.ObjectId.isValid(usuarioId)) return;
+    const u = await this.usuarios.findById(usuarioId, { premiumHasta: 1 }).lean();
+    const hasta = u?.premiumHasta?.getTime();
+    const ahora = Date.now();
+    if (!hasta || hasta > ahora || ahora - hasta > 40 * DIA_MS) return;
+    if (ahora - (this.ultimaRevision.get(usuarioId) ?? 0) < 60 * 60 * 1000) return;
+    this.ultimaRevision.set(usuarioId, ahora);
+    const s = await this.suscripciones
+      .findOne({ usuarioId: u!._id, estado: { $in: ['authorized', 'paused'] } })
+      .sort({ createdAt: -1 })
+      .lean();
+    if (s?.externoId)
+      await this.refrescar(s.externoId).catch((e) =>
+        console.error('[pagos] no se pudo revisar el vencimiento', e),
+      );
   }
 
   /** Notificación de Mercado Pago: puede ser de la suscripción o de un cobro mensual. */
@@ -283,6 +310,7 @@ export class PremiumService {
   }
 
   async estado(usuarioId: string) {
+    await this.revisarVencido(usuarioId);
     const u = await this.usuario(usuarioId);
     const s = await this.suscripciones
       .findOne({ usuarioId: u._id, estado: { $in: ['authorized', 'paused'] } })
