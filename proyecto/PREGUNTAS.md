@@ -18,6 +18,21 @@ con la recomendación si no respondés en el ciclo siguiente.
 - **P.5** 🟢 El mono se llama "Mona" salvo que Fede prefiera otro nombre.
 - **P.6** 🟢 Ciclo autónomo a las 8, 14 y 20 (hora Argentina), en un hilo propio.
 
+### Premium y Play Store (épica S, 20/10/2026)
+- **S.1** 🔴 ¿Qué entra en premium? Recomiendo: asistente IA (3 usos gratis) y métricas
+  de análisis (por categoría, comparar meses, proyección a fin de año; 2 vistas gratis).
+  El gráfico de ahorro a 12 meses (D2) queda gratis.
+- **S.2** 🔴 Precio: USD 2/mes. ¿También anual (por ejemplo USD 18)? Recomiendo sumar el
+  anual desde el principio: Play lo soporta igual y retiene más.
+- **S.3** 🔴 Cuenta de Google Play Developer (USD 25, una vez, a nombre de Fede). Hace
+  falta para S6 y S7.
+- **S.4** 🔴 Publicidad: recomiendo no ponerla hasta tener uso real, y si va, un solo
+  lugar fijo. ¿Ok?
+- **S.5** 🔴 Asistente IA: Claude Haiku con un presupuesto diario (como abisal, por
+  ejemplo USD 1/día al principio). Necesita una API key en DO (tarea local).
+- **S.6** 🟢 La web sigue gratis y sin cobro propio hasta que S8 se decida; premium se
+  compra en la app de Play.
+
 ## Respondidas
 
 - **A3.1** (20/10/2026): Fede creó el usuario de Atlas y cargó `MONGO_URI`, `AUTH_SECRET` y `ADMIN_API_KEY` en la app de DO. `/api/salud` da `base: true`.

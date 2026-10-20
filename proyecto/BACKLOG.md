@@ -3,7 +3,7 @@
 Objetivo: un MVP que Fede use todos los días con sus gastos reales: cargar saldo, ingreso,
 gastos y reservas, ver el balance del mes y moverse a meses futuros, con el mono.
 
-Última actualización: 20/10/2026 (arranque). Cómo se trabaja: ver [README.md](README.md).
+Última actualización: 20/10/2026 (épicas R y S). Cómo se trabaja: ver [README.md](README.md).
 Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 
 **Prioridad**: **P0** sin esto no hay MVP · **P1** parte del MVP que queremos mostrar ·
@@ -48,9 +48,20 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | E1 | Recordatorio de vencimientos y día de cobro | P2 | lista | Claude | B4 |
 | E2 | Cuenta compartida (pareja) | P2 | lista | Ambos | B2 |
 | E3 | Dominio propio | P2 | bloqueada | Fede | |
+| R1 | Buzón de recomendaciones en la app ("¿Qué le mejorarías a Mona?") | P1 | lista | Claude | B2 |
+| R2 | Leer las recomendaciones en cada ciclo y convertirlas en tareas | P2 | lista | Claude | R1, A6 |
+| S1 | Plan premium en el back (quién es premium, hasta cuándo, de dónde pagó) | P2 | preguntas | Claude | B2 |
+| S2 | Métricas premium con 3 vistas gratis | P2 | preguntas | Claude | S1, D2 |
+| S3 | Asistente con IA por chat: crea gastos y los marca pagos, pregunta lo que falta | P2 | preguntas | Claude | S1 |
+| S4 | Asistente por voz (dictado sobre S3) | P2 | lista | Claude | S3 |
+| S5 | Publicidad liviana que se va con la suscripción | P2 | preguntas | Ambos | S1 |
+| S6 | Publicar en Play Store como TWA (la PWA empaquetada) | P2 | preguntas | Ambos | C7 |
+| S7 | Suscripción de USD 2/mes con Google Play Billing, verificada en el back | P2 | preguntas | Ambos | S1, S6 |
+| S8 | Pago de la suscripción desde la web (fuera de Play) | P2 | preguntas | Ambos | S1 |
 
-Orden sugerido: C1 (diseño final del mono, con Fede) → D2 → A5 → D3 → C1 → D1 → C7 → D2 → A5; C1 en
-paralelo desde ya, para que Fede elija el mono mientras se arma la API.
+Orden sugerido: C1 (diseño final del mono, con Fede) → D2 → A5 → R1 → D3. La épica S
+(premium) va después de que la app tenga uso diario: primero S1 y S3, que es el gancho;
+S5 (publicidad) al final o nunca. Ver la opinión en el detalle de la épica S.
 
 ---
 
@@ -104,3 +115,84 @@ general, sonidos satisfactorios estilo Tricky Towers al realizar acciones."
 **C1 · Propuestas visuales** — 2 o 3 variantes del mono (SVG) y de la pantalla del mes,
 publicadas para que Fede elija. Estados del mono: feliz (ahorro), nervioso (cerca de
 cero), en pánico (negativo).
+
+**R1 · Buzón de recomendaciones** — Pedido de Fede (20/10/2026): "un apartado de
+recomendaciones que envíen los usuarios, para usarlas como input para mejorar el
+proyecto". Un botón en el menú abre una hoja con un texto libre (hasta 1000 caracteres),
+la sección de la que habla (opcional) y Mona agradeciendo. `POST /recomendaciones` guarda
+texto, usuario, fecha y versión del front; tope de 5 por usuario por día. Se leen con
+`/api/admin/consulta` (colección `recomendaciones`). Criterio: un usuario manda una y
+aparece en la consulta; otro usuario no la ve.
+
+**R2 · Recomendaciones al backlog** — El ciclo autónomo lee las recomendaciones nuevas,
+las agrupa y propone tareas en PREGUNTAS.md con cuántos usuarios pidieron cada cosa.
+Nada entra al backlog sin que Fede lo vea.
+
+### Épica S · Premium y Play Store (pedido de Fede, 20/10/2026)
+
+Lo pedido: métricas premium que se pueden ver 2 o 3 veces gratis y después piden la
+suscripción de USD 2/mes; un asistente con IA por chat o voz ("compré con la tarjeta de
+crédito una campera en 6 cuotas" → crea un gasto fijo de 6 meses y pregunta "¿cuánto la
+pagaste?"); publicidad poco molesta que se va con la suscripción; la app va a Play Store y
+cobra con la suscripción de Play.
+
+Opinión (Claude):
+- **El asistente es el mejor gancho premium.** El ejemplo de la campera encaja justo con
+  el modelo: fijo con `mesFin` = mes actual + 5 y `monto` = total / 6. Se resuelve con
+  tool use (crear_gasto, pagar_gasto, usar_reserva) y la IA nunca escribe sola: arma el
+  gasto, lo muestra en la hoja de siempre y la persona confirma. Cuesta centavos por
+  mensaje con un modelo chico (Claude Haiku, como abisal), pero igual necesita contador de
+  uso y cupo diario como abisal (B3), o un usuario gratis puede gastar más que lo que paga
+  uno premium.
+- **Métricas premium: falta definir cuáles.** Propongo que el gráfico de ahorro a 12
+  meses (D2) quede gratis porque es el corazón de la app, y premium sea lo de análisis:
+  en qué se va la plata por categoría, comparar meses, "a este ritmo llegás a X en
+  diciembre", exportar.
+- **Publicidad: la dejaría para el final o nunca.** En una app de plata la confianza
+  vale más que lo que paga un banner con pocos usuarios (centavos), y los avisos de
+  préstamos o apuestas que suelen salir le pegan a la marca. Si va, un solo lugar fijo y
+  nunca en medio de cargar o pagar.
+- **Play Store encaja bien con lo que hay:** la PWA (C7) se empaqueta como TWA con
+  Bubblewrap; la cuenta de desarrollador cuesta USD 25 una vez. Dentro de la app de Play,
+  lo digital se cobra con Play Billing (Google se queda con 15% de las suscripciones,
+  así que de USD 2 quedan ~1,70). Desde una TWA se usa con la Digital Goods API y Payment
+  Request. Quien entre por la web no puede pagar con Play: o la web es solo gratis, o se
+  suma un cobro web aparte (S8). Por eso el back tiene que ser la fuente de verdad del
+  plan (S1), con origen `play` o `web`.
+- **Orden:** R1 primero (barato y alimenta todo), después S1 + S3 (asistente), S6 + S7
+  cuando haya gente usándola, S2 cuando sepamos qué métricas piden (R1 ayuda), S5 al final.
+
+**S1 · Plan premium** — Colección `suscripciones` (usuario, plan, `vence`, origen
+`play`/`web`/`regalo`, token de compra). `GET /perfil` suma `premium: {activo, vence}`.
+Contador de usos gratis por función (`usosGratis: {metricas: 2, asistente: 3}`) en el
+back, no en el navegador, para que no se resetee borrando datos.
+
+**S2 · Métricas premium** — Depende de PREGUNTAS S.1. Cada apertura de una métrica
+premium resta una vista gratis; al llegar a 0, Mona muestra la pantalla de suscripción.
+
+**S3 · Asistente por chat** — Hoja de chat con Mona. El back llama al modelo con
+herramientas para crear, editar y pagar gastos y usar reservas; si falta un dato (monto,
+cantidad de cuotas, mes) pregunta antes de proponer. La propuesta se confirma con un
+toque en la hoja de gasto de siempre. Cada llamada registra tokens y costo; cupo por
+usuario y presupuesto diario global. Criterios con casos reales: campera en 6 cuotas,
+"pagué la luz", "gasté 30 de nafta" (uso de la reserva transporte).
+
+**S4 · Voz** — Botón de micrófono que dicta al chat de S3 con la Web Speech API donde
+exista (Chrome Android sí) y, si no, el dictado del teclado del teléfono. El texto pasa
+por el mismo camino que el chat.
+
+**S5 · Publicidad** — Depende de PREGUNTAS S.4. Un solo espacio fijo abajo de la lista,
+nunca en hojas ni animaciones; se va con premium.
+
+**S6 · Play Store** — Bubblewrap genera el proyecto Android de la TWA; Digital Asset
+Links (`/.well-known/assetlinks.json` en el front) para que abra sin barra del navegador.
+Necesita la cuenta de Google Play Developer de Fede y el dominio propio (E3). Ficha de la
+tienda con capturas de Mona.
+
+**S7 · Play Billing** — Producto de suscripción mensual en Play Console. El front usa la
+Digital Goods API para comprar; el back verifica el token con la Google Play Developer
+API y escucha las notificaciones en tiempo real (RTDN, vía Pub/Sub) para renovaciones y
+cancelaciones. Credencial de cuenta de servicio: la carga Fede en DO (tarea local).
+
+**S8 · Pago web** — Opcional. Mercado Pago o Stripe para quien usa la web; el mismo plan
+de S1 con origen `web`.
