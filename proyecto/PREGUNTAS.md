@@ -24,6 +24,17 @@ con la recomendación si no respondés en el ciclo siguiente.
   `https://monasafer-4lh7x.ondigitalocean.app` y `http://localhost:5173`, y pasar el ID
   (no el secreto). Va en el código: no es secreto.
 
+### Salida a producción (épica L, 20/10/2026)
+- **L.1** 🔴 Leer https://monasafer.com/privacidad.html y /terminos.html. Hoy dicen
+  "el responsable es Monasafer": ¿ponemos tu nombre (o una razón social) como
+  responsable? La Ley 25.326 pide que se identifique a alguien.
+- **L.2** 🔴 Resend: crear cuenta (gratis), agregar el dominio `monasafer.com`, cargar
+  en Cloudflare los registros DNS que te muestra y poner `RESEND_API_KEY` en la app de
+  DO (tarea local). Sin eso el recupero no manda emails.
+- **L.3** 🔴 Email `hola@monasafer.com`: Cloudflare → Email → Email Routing, reenviar a
+  tu Gmail. Las páginas legales ya lo nombran.
+- **L.4** 🔴 Cuenta de Google Play Developer (USD 25) y verificación de identidad.
+
 ### Premium y Play Store (épica S, 20/10/2026)
 - **S.1** 🔴 ¿Qué entra en premium? Recomiendo: asistente IA (3 usos gratis) y métricas
   de análisis (por categoría, comparar meses, proyección a fin de año; 2 vistas gratis).

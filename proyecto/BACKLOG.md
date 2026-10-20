@@ -31,12 +31,12 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | B5 | API de reservas (proporcional y manual, usos) | P0 | hecha | Claude | B4 |
 | B6 | `GET /meses/:mes` y `GET /proyeccion` con el motor | P0 | hecha | Claude | B4 |
 | B7 | Entrar con Google (Google Identity Services, sin Firebase) | P1 | en revisión | Ambos | B2 |
-| L1 | 🚨 Recupero de contraseña por email (link de 1 h, Resend) | P0 | en curso | Ambos | B2 |
-| L2 | 🚨 Borrar la cuenta y todos los datos (en la app y página web) | P0 | en curso | Claude | B2 |
-| L3 | 🚨 Política de privacidad (borrador) y revisión de Fede | P0 | en curso | Ambos | |
-| L4 | 🚨 Términos y condiciones (borrador), aceptación al crear cuenta | P0 | en curso | Ambos | |
+| L1 | 🚨 Recupero de contraseña por email (link de 1 h, Resend) | P0 | en revisión | Ambos | B2 |
+| L2 | 🚨 Borrar la cuenta y todos los datos (en la app y página web) | P0 | hecha | Claude | B2 |
+| L3 | 🚨 Política de privacidad (borrador) y revisión de Fede | P0 | en revisión | Ambos | |
+| L4 | 🚨 Términos y condiciones (borrador), aceptación al crear cuenta | P0 | en revisión | Ambos | |
 | L5 | 🚨 Email de contacto `hola@monasafer.com` (reenvío de Cloudflare) | P0 | lista | Fede | |
-| L6 | 🚨 Límite de intentos en login, registro y recupero | P0 | en curso | Claude | B2 |
+| L6 | 🚨 Límite de intentos en login, registro y recupero | P0 | hecha | Claude | B2 |
 | L7 | 🚨 Prueba de punta a punta en monasafer.com con la cuenta real de Fede | P0 | lista | Ambos | L1-L6 |
 | L8 | Respaldo de la base (Atlas M0 no tiene backups automáticos) | P1 | lista | Ambos | |
 | L9 | Cuenta de Google Play Developer (USD 25) y verificación de identidad | P0 | lista | Fede | |
@@ -225,3 +225,9 @@ Cloud Console, PREGUNTAS B7.1).
 🚨 = bloquea la salida en la web del 21/10. Play Store no puede salir a producción antes
 de ~14 días por la prueba cerrada obligatoria. Detalle y porqué en
 [LANZAMIENTO.md](LANZAMIENTO.md).
+
+Hecho el 20/10: L2 (⚙️ → Borrar mi cuenta, `DELETE /perfil`, y la página pública
+`/borrar-cuenta.html` para Play), L6 (límite en memoria por IP y email), L1 en código
+(falta `RESEND_API_KEY` y el dominio verificado en Resend para que salgan los emails),
+borradores de `/privacidad.html` y `/terminos.html` (falta que Fede los lea y complete el
+responsable: nombre o razón social).
