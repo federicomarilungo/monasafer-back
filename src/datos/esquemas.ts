@@ -13,7 +13,12 @@ export class IngresoMensual {
 export class Usuario {
   @Prop({ required: true, unique: true, lowercase: true, trim: true })
   email: string;
-  @Prop({ required: true }) hashClave: string;
+  /** null = la cuenta entra solo con Google. */
+  @Prop({ type: String, default: null }) hashClave: string | null;
+  /** `sub` de la cuenta de Google vinculada. */
+  @Prop({ type: String, default: null }) googleSub: string | null;
+  /** Los tokens emitidos antes de esta fecha no valen (al vincular Google a una cuenta con contraseña). */
+  @Prop({ type: Date, default: null }) sesionesDesde: Date | null;
   @Prop({ default: '' }) nombre: string;
   @Prop({ default: 'USD', enum: ['USD', 'ARS'] }) moneda: string;
   @Prop({ default: 0 }) saldo: number;
@@ -23,6 +28,10 @@ export class Usuario {
 }
 export type UsuarioDoc = HydratedDocument<Usuario>;
 export const UsuarioSchema = SchemaFactory.createForClass(Usuario);
+UsuarioSchema.index(
+  { googleSub: 1 },
+  { unique: true, partialFilterExpression: { googleSub: { $type: 'string' } } },
+);
 
 @Schema({ collection: 'gastos', timestamps: true })
 export class GastoDb {

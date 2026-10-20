@@ -49,6 +49,14 @@ export class Tokens {
 
   /** Devuelve el id del usuario o null si el token no vale. */
   validar(token: unknown, ahora = Date.now()): string | null {
+    return this.leer(token, ahora)?.usuarioId ?? null;
+  }
+
+  /** Id del usuario y cuándo se emitió (ms), o null si el token no vale. */
+  leer(
+    token: unknown,
+    ahora = Date.now(),
+  ): { usuarioId: string; emitido: number } | null {
     if (typeof token !== 'string') return null;
     const partes = token.split('.');
     if (partes.length !== 3) return null;
@@ -69,7 +77,7 @@ export class Tokens {
         datos.exp * 1000 <= ahora
       )
         return null;
-      return datos.sub;
+      return { usuarioId: datos.sub, emitido: (datos.iat ?? 0) * 1000 };
     } catch {
       return null;
     }

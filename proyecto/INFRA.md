@@ -35,3 +35,10 @@ Se usa el entorno `abisal` (tiene `DO_TOKEN` y las keys de Atlas). Medido el 20/
 - La API de Atlas rechaza al sandbox por IP (la API key tiene access list). El usuario de
   la base lo crea Fede desde la web de Atlas, o suma la IP de salida a la key.
 - GitHub: Fede le dio acceso a la app de Claude sobre los repos `monasafer-*` el 20/10.
+
+## Google (login, B7)
+
+Proyecto de Google Cloud de Fede con un ID de cliente de OAuth tipo "Aplicación web". El
+ID va en `src/auth/google.ts` (no es secreto; `GOOGLE_CLIENT_ID` lo pisa). El secreto de
+cliente no se usa. Para un origen nuevo (otro dominio, otro puerto local) hay que sumarlo
+en "Orígenes de JavaScript autorizados" del cliente.

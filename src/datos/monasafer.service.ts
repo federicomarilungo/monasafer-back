@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ServiceUnavailableException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -9,6 +10,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Datos, mesDe, proyectar, resumenDelMes, sumarMeses } from '../motor';
 import { hashClave, Tokens, verificarClave } from '../auth/tokens';
+import { googleClientId, VerificadorGoogle } from '../auth/google';
+import { Sesiones } from '../auth/usuario.guard';
 import { GastoDb, MesGasto, UsoReservaDb, Usuario } from './esquemas';
 import { GastoEntrada } from './validar';
 
@@ -20,14 +23,18 @@ function oid(id: string): Types.ObjectId {
 }
 
 @Injectable()
-export class MonasaferService {
+export class MonasaferService implements Sesiones {
   constructor(
     @InjectModel(Usuario.name) private readonly usuarios: Model<Usuario>,
     @InjectModel(GastoDb.name) private readonly gastos: Model<GastoDb>,
     @InjectModel(MesGasto.name) private readonly meses: Model<MesGasto>,
     @InjectModel(UsoReservaDb.name) private readonly usos: Model<UsoReservaDb>,
     private readonly tokens: Tokens,
+    private readonly google: VerificadorGoogle,
   ) {}
+
+  /** Cache corta de `sesionesDesde` para no ir a la base en cada request. */
+  private readonly cacheSesiones = new Map<string, { desde: number; hasta: number }>();
 
   hoy(): Date {
     return new Date();
@@ -48,9 +55,73 @@ export class MonasaferService {
 
   async login(email: string, clave: string) {
     const u = await this.usuarios.findOne({ email });
-    if (!u || !verificarClave(clave, u.hashClave))
+    if (u && !u.hashClave)
+      throw new UnauthorizedException('Esta cuenta entra con Google');
+    if (!u || !verificarClave(clave, u.hashClave!))
       throw new UnauthorizedException('Email o contraseña incorrectos');
     return { token: this.tokens.generar(u.id), perfil: this.perfilPublico(u) };
+  }
+
+  /**
+   * Entrar con Google: busca la cuenta por `sub`, si no por email (y la vincula), si no la
+   * crea. Al vincular una cuenta que tenía contraseña, la contraseña se borra y las
+   * sesiones anteriores se cierran: el email de esa cuenta nunca se verificó, así que
+   * pudo haberla creado otra persona para quedarse adentro cuando llegue el dueño.
+   */
+  async loginGoogle(credencial: string) {
+    const clientId = googleClientId();
+    if (!clientId)
+      throw new ServiceUnavailableException('Login con Google no configurado');
+    const g = await this.google.verificar(credencial, clientId);
+    if (!g) throw new UnauthorizedException('No pudimos verificar tu cuenta de Google');
+    let u = await this.usuarios.findOne({ googleSub: g.sub });
+    let nuevo = false;
+    if (!u) {
+      const existente = await this.usuarios.findOne({ email: g.email });
+      if (existente) {
+        u = await this.usuarios.findByIdAndUpdate(
+          existente._id,
+          {
+            $set: {
+              googleSub: g.sub,
+              hashClave: null,
+              sesionesDesde: new Date(Math.floor(Date.now() / 1000) * 1000),
+              ...(existente.nombre ? {} : { nombre: g.nombre }),
+            },
+          },
+          { new: true },
+        );
+        this.cacheSesiones.delete(existente.id);
+      } else {
+        u = await this.usuarios.create({
+          email: g.email,
+          nombre: g.nombre,
+          googleSub: g.sub,
+        });
+        nuevo = true;
+      }
+    }
+    return {
+      token: this.tokens.generar(u!.id),
+      perfil: this.perfilPublico(u!),
+      nuevo,
+    };
+  }
+
+  async vigente(usuarioId: string, emitido: number): Promise<boolean> {
+    const ahora = Date.now();
+    let c = this.cacheSesiones.get(usuarioId);
+    if (!c || c.hasta < ahora) {
+      if (!Types.ObjectId.isValid(usuarioId)) return false;
+      const u = await this.usuarios
+        .findById(usuarioId, { sesionesDesde: 1 })
+        .lean();
+      if (!u) return false;
+      c = { desde: u.sesionesDesde?.getTime() ?? 0, hasta: ahora + 60_000 };
+      if (this.cacheSesiones.size > 5000) this.cacheSesiones.clear();
+      this.cacheSesiones.set(usuarioId, c);
+    }
+    return emitido >= c.desde;
   }
 
   async perfil(usuarioId: string) {
@@ -341,6 +412,7 @@ export class MonasaferService {
       id: String(u._id),
       email: u.email,
       nombre: u.nombre,
+      google: !!u.googleSub,
       moneda: u.moneda,
       saldo: u.saldo,
       ingresoMensual: u.ingresoMensual

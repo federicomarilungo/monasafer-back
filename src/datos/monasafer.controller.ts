@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
 import { UsuarioId } from '../auth/usuario.guard';
+import { googleClientId } from '../auth/google';
 import { MonasaferService } from './monasafer.service';
 import * as v from './validar';
 import { BadRequestException } from '@nestjs/common';
@@ -40,6 +41,22 @@ export class MonasaferController {
       v.email(b.email),
       typeof b.clave === 'string' ? b.clave : '',
     );
+  }
+
+  @Public()
+  @Post('auth/google')
+  @HttpCode(200)
+  loginGoogle(@Body() body: unknown) {
+    const b = v.objeto(body);
+    if (typeof b.credencial !== 'string' || b.credencial.length > 5000)
+      throw new BadRequestException('credencial inválida');
+    return this.s.loginGoogle(b.credencial);
+  }
+
+  @Public()
+  @Get('auth/config')
+  config() {
+    return { googleClientId: googleClientId() || null };
   }
 
   @Get('perfil')

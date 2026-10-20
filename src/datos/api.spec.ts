@@ -4,6 +4,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import request from 'supertest';
 import { AppModule } from '../app.module';
 import { MonasaferService } from './monasafer.service';
+import { VerificadorGoogle } from '../auth/google';
 
 // Prueba la API entera contra un Mongo en memoria. Hoy = 15/10/2026.
 jest.setTimeout(60000);
@@ -16,6 +17,7 @@ describe('API de Monasafer', () => {
 
   beforeAll(async () => {
     process.env.AUTH_SECRET = 's'.repeat(40);
+    process.env.GOOGLE_CLIENT_ID = 'cliente-test.apps.googleusercontent.com';
     mongo = await MongoMemoryServer.create();
     const mod = await Test.createTestingModule({
       imports: [AppModule.crear(mongo.getUri('monasafer'))],
@@ -25,6 +27,15 @@ describe('API de Monasafer', () => {
     jest
       .spyOn(mod.get(MonasaferService), 'hoy')
       .mockReturnValue(new Date(2026, 9, 15));
+    // Credencial falsa "google:<sub>:<email>" en lugar del ID token firmado por Google.
+    jest
+      .spyOn(mod.get(VerificadorGoogle), 'verificar')
+      .mockImplementation(async (credencial, clientId) => {
+        const [tipo, sub, email] = credencial.split(':');
+        if (tipo !== 'google' || clientId !== process.env.GOOGLE_CLIENT_ID)
+          return null;
+        return { sub, email, nombre: 'Fede G' };
+      });
     http = request(app.getHttpServer());
   });
 
@@ -75,6 +86,62 @@ describe('API de Monasafer', () => {
       .expect(200);
     expect(r.body.perfil.email).toBe('login@test.com');
     expect(r.body.perfil.hashClave).toBeUndefined();
+  });
+
+  it('entrar con Google: crea la cuenta y la segunda vez entra a la misma', async () => {
+    const c = await http.get('/auth/config').expect(200);
+    expect(c.body.googleClientId).toBe(process.env.GOOGLE_CLIENT_ID);
+    await http
+      .post('/auth/google')
+      .send({ credencial: 'basura' })
+      .expect(401);
+    await http.post('/auth/google').send({}).expect(400);
+    const a = await http
+      .post('/auth/google')
+      .send({ credencial: 'google:111:nueva@gmail.com' })
+      .expect(200);
+    expect(a.body.nuevo).toBe(true);
+    expect(a.body.perfil).toMatchObject({
+      email: 'nueva@gmail.com',
+      nombre: 'Fede G',
+      google: true,
+    });
+    const b = await http
+      .post('/auth/google')
+      .send({ credencial: 'google:111:nueva@gmail.com' })
+      .expect(200);
+    expect(b.body.nuevo).toBe(false);
+    expect(b.body.perfil.id).toBe(a.body.perfil.id);
+    await http
+      .get('/perfil')
+      .set({ Authorization: `Bearer ${b.body.token}` })
+      .expect(200);
+    const l = await http
+      .post('/auth/login')
+      .send({ email: 'nueva@gmail.com', clave: 'lo-que-sea' })
+      .expect(401);
+    expect(l.body.message).toMatch(/Google/);
+  });
+
+  it('Google con el email de una cuenta con contraseña: la vincula, borra la contraseña y cierra las sesiones viejas', async () => {
+    const vieja = await cuenta('dueno@gmail.com');
+    await http.get('/perfil').set(vieja.auth).expect(200);
+    await new Promise((r) => setTimeout(r, 1100)); // iat va en segundos
+    const g = await http
+      .post('/auth/google')
+      .send({ credencial: 'google:222:dueno@gmail.com' })
+      .expect(200);
+    expect(g.body.nuevo).toBe(false);
+    expect(g.body.perfil.nombre).toBe('Fede'); // no pisa el nombre que ya tenía
+    await http
+      .get('/perfil')
+      .set({ Authorization: `Bearer ${g.body.token}` })
+      .expect(200);
+    await http.get('/perfil').set(vieja.auth).expect(401);
+    await http
+      .post('/auth/login')
+      .send({ email: 'dueno@gmail.com', clave: 'bananas123' })
+      .expect(401);
   });
 
   it('el flujo completo del mes: saldo, gastos, pagar, reservas y proyección', async () => {

@@ -30,6 +30,7 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | B4 | API de gastos puntuales y fijos (alta, edición, monto por mes, pagar) | P0 | hecha | Claude | B1, B2 |
 | B5 | API de reservas (proporcional y manual, usos) | P0 | hecha | Claude | B4 |
 | B6 | `GET /meses/:mes` y `GET /proyeccion` con el motor | P0 | hecha | Claude | B4 |
+| B7 | Entrar con Google (Google Identity Services, sin Firebase) | P1 | en revisión | Ambos | B2 |
 | C1 | Propuestas visuales del mono y de la pantalla del mes | P0 | lista | Ambos | |
 | C2 | Pantalla del mes: balance, mono y lista de gastos | P0 | hecha | Claude | C1, B6 |
 | C3 | Alta rápida de gasto | P0 | hecha | Claude | C2 |
@@ -196,3 +197,12 @@ cancelaciones. Credencial de cuenta de servicio: la carga Fede en DO (tarea loca
 
 **S8 · Pago web** — Opcional. Mercado Pago o Stripe para quien usa la web; el mismo plan
 de S1 con origen `web`.
+
+**B7 · Entrar con Google** — Pedido de Fede (20/10/2026), sin Firebase ni Supabase. Botón
+oficial de Google Identity Services arriba del formulario; el back verifica el ID token
+con `google-auth-library` (`POST /auth/google`) y crea o vincula la cuenta por email,
+conviviendo con email y contraseña. Si se vincula una cuenta que tenía contraseña, la
+contraseña se borra y las sesiones anteriores se cierran (`sesionesDesde`): esa cuenta
+nunca verificó el email y pudo haberla creado otra persona para quedarse adentro. Código
+deployado el 20/10; el botón aparece cuando esté el Client ID (Fede lo crea en Google
+Cloud Console, PREGUNTAS B7.1).

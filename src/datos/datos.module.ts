@@ -2,7 +2,8 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Tokens } from '../auth/tokens';
-import { UsuarioGuard } from '../auth/usuario.guard';
+import { SESIONES, UsuarioGuard } from '../auth/usuario.guard';
+import { VerificadorGoogle } from '../auth/google';
 import {
   GastoDb,
   GastoSchema,
@@ -29,6 +30,8 @@ import { MonasaferService } from './monasafer.service';
   providers: [
     MonasaferService,
     { provide: Tokens, useFactory: () => Tokens.desdeEntorno() },
+    { provide: SESIONES, useExisting: MonasaferService },
+    VerificadorGoogle,
     { provide: APP_GUARD, useClass: UsuarioGuard },
   ],
 })

@@ -43,6 +43,8 @@ Sin `MONGO_URI` la API levanta solo con `GET /ping`, `GET /salud` y `POST /admin
 | Endpoint | Qué hace |
 |---|---|
 | `POST /auth/registro`, `POST /auth/login` (públicos) | `{email, clave, nombre?}` → `{token, perfil}`. Token JWT de 30 días firmado con `AUTH_SECRET` |
+| `POST /auth/google` (público) | `{credencial}` (ID token del botón de Google) → `{token, perfil, nuevo}`. Verifica con `google-auth-library` contra el Client ID; busca por `googleSub`, si no por email (vincula, borra la contraseña y cierra sesiones viejas con `sesionesDesde`), si no crea la cuenta. Sin Firebase |
+| `GET /auth/config` (público) | `{googleClientId}`: el front muestra el botón solo si hay. Client ID en `src/auth/google.ts` o `GOOGLE_CLIENT_ID` |
 | `GET/PATCH /perfil` | nombre, moneda, saldo, `ingresoMensual {monto, diaCobro}` |
 | `POST /perfil/cobrar-ingreso` | suma el ingreso al saldo, una vez por mes |
 | `GET/POST /gastos`, `PATCH/DELETE /gastos/:id` | alta, edición y archivado (DELETE archiva) |

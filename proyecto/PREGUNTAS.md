@@ -18,6 +18,12 @@ con la recomendación si no respondés en el ciclo siguiente.
 - **P.5** 🟢 El mono se llama "Mona" salvo que Fede prefiera otro nombre.
 - **P.6** 🟢 Ciclo autónomo a las 8, 14 y 20 (hora Argentina), en un hilo propio.
 
+### Login con Google (B7, 20/10/2026)
+- **B7.1** 🔴 Crear el ID de cliente de OAuth (Aplicación web) en Google Cloud Console con
+  los orígenes `https://monasafer.com`, `https://www.monasafer.com`,
+  `https://monasafer-4lh7x.ondigitalocean.app` y `http://localhost:5173`, y pasar el ID
+  (no el secreto). Va en el código: no es secreto.
+
 ### Premium y Play Store (épica S, 20/10/2026)
 - **S.1** 🔴 ¿Qué entra en premium? Recomiendo: asistente IA (3 usos gratis) y métricas
   de análisis (por categoría, comparar meses, proyección a fin de año; 2 vistas gratis).

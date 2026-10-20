@@ -1,4 +1,6 @@
 import {
+  Inject,
+  Optional,
   CanActivate,
   ExecutionContext,
   Injectable,
@@ -14,15 +16,22 @@ interface ConUsuario {
   usuarioId?: string;
 }
 
+/** Dice si los tokens de un usuario emitidos en `emitido` (ms) siguen valiendo. */
+export const SESIONES = Symbol('SESIONES');
+export interface Sesiones {
+  vigente(usuarioId: string, emitido: number): Promise<boolean>;
+}
+
 /** Guard global: todo endpoint pide `Authorization: Bearer <token>` salvo los @Public(). */
 @Injectable()
 export class UsuarioGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly tokens: Tokens,
+    @Optional() @Inject(SESIONES) private readonly sesiones?: Sesiones,
   ) {}
 
-  canActivate(ctx: ExecutionContext): boolean {
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
     if (
       this.reflector.getAllAndOverride<boolean>(ES_PUBLICO, [
         ctx.getHandler(),
@@ -36,9 +45,14 @@ export class UsuarioGuard implements CanActivate {
       typeof auth === 'string' && auth.startsWith('Bearer ')
         ? auth.slice(7)
         : null;
-    const usuarioId = this.tokens.validar(token);
-    if (!usuarioId) throw new UnauthorizedException();
-    req.usuarioId = usuarioId;
+    const leido = this.tokens.leer(token);
+    if (
+      !leido ||
+      (this.sesiones &&
+        !(await this.sesiones.vigente(leido.usuarioId, leido.emitido)))
+    )
+      throw new UnauthorizedException();
+    req.usuarioId = leido.usuarioId;
     return true;
   }
 }
