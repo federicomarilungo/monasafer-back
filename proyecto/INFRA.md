@@ -29,6 +29,9 @@ Mismo proyecto y cluster que abisal (`abisal-cluster`, M0 gratis, AWS us-east-1)
 ## Entorno cloud de Claude Code
 
 Se usa el entorno `abisal` (tiene `DO_TOKEN` y las keys de Atlas). Medido el 20/10/2026:
+- Escribir variables secretas en la app de DO lo bloquea el modo automático (igual que en
+  abisal): las carga Fede, o una sesión en su Mac. También bloquea usar el DO_TOKEN como
+  llave de la API o derivar AUTH_SECRET de MONGO_URI (probado el 20/10/2026).
 - La API de Atlas rechaza al sandbox por IP (la API key tiene access list). El usuario de
   la base lo crea Fede desde la web de Atlas, o suma la IP de salida a la key.
 - GitHub: Fede le dio acceso a la app de Claude sobre los repos `monasafer-*` el 20/10.

@@ -40,15 +40,15 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | D1 | Estados y animaciones del mono según el balance | P1 | lista | Claude | C1, C2 |
 | D2 | Gráfico de ahorro proyectado a 12 meses | P1 | lista | Claude | C4 |
 | D3 | Logros y rachas de ahorro | P2 | lista | Claude | D1 |
-| M1 | Reserva pasada de gasto: mostrar lo que queda en negativo | P1 | lista | Claude | C5 |
-| M2 | Al mes siguiente, sugerir subir el monto de una reserva que se pasó | P1 | lista | Claude | M1 |
-| M3 | Al pagar: animación que muestre el impacto en "Saldo hoy" y "Por gastar", con sonido | P1 | lista | Claude | C2 |
-| M4 | Sonidos satisfactorios en toda la app (estilo Tricky Towers), con botón para silenciar | P1 | lista | Claude | M3 |
+| M1 | Reserva pasada de gasto: mostrar lo que queda en negativo | P1 | hecha | Claude | C5 |
+| M2 | Al mes siguiente, sugerir subir el monto de una reserva que se pasó | P1 | hecha | Claude | M1 |
+| M3 | Al pagar: animación que muestre el impacto en "Saldo hoy" y "Por gastar", con sonido | P1 | hecha | Claude | C2 |
+| M4 | Sonidos satisfactorios en toda la app (estilo Tricky Towers), con botón para silenciar | P1 | hecha | Claude | M3 |
 | E1 | Recordatorio de vencimientos y día de cobro | P2 | lista | Claude | B4 |
 | E2 | Cuenta compartida (pareja) | P2 | lista | Ambos | B2 |
 | E3 | Dominio propio | P2 | bloqueada | Fede | |
 
-Orden sugerido: A3 (conectar la base en prod) → M3 → M4 → M1 → M2 → C6 → C1 → D1 → C7 → D2 → A5; C1 en
+Orden sugerido: A3 (conectar la base en prod) → C6 → C1 → D1 → C7 → D2 → A5; C1 en
 paralelo desde ya, para que Fede elija el mono mientras se arma la API.
 
 ---
