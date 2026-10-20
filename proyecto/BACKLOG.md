@@ -35,9 +35,9 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | C3 | Alta rápida de gasto | P0 | hecha | Claude | C2 |
 | C4 | Navegación entre meses con animación | P0 | hecha | Claude | C2 |
 | C5 | Reservas en el front (frasco que se vacía, cargar usos) | P0 | hecha | Claude | C2, B5 |
-| C6 | Login y onboarding (saldo, ingreso, primeros fijos) con el mono | P0 | en curso | Claude | B2, C2 |
-| C7 | Mobile primero y PWA instalable | P1 | lista | Claude | C2 |
-| D1 | Estados y animaciones del mono según el balance | P1 | lista | Claude | C1, C2 |
+| C6 | Login y onboarding (saldo, ingreso, primeros fijos) con el mono | P0 | hecha | Claude | B2, C2 |
+| C7 | Mobile primero y PWA instalable | P1 | hecha | Claude | C2 |
+| D1 | Estados y animaciones del mono según el balance | P1 | hecha | Claude | C1, C2 |
 | D2 | Gráfico de ahorro proyectado a 12 meses | P1 | lista | Claude | C4 |
 | D3 | Logros y rachas de ahorro | P2 | lista | Claude | D1 |
 | M1 | Reserva pasada de gasto: mostrar lo que queda en negativo | P1 | hecha | Claude | C5 |
@@ -49,7 +49,7 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | E2 | Cuenta compartida (pareja) | P2 | lista | Ambos | B2 |
 | E3 | Dominio propio | P2 | bloqueada | Fede | |
 
-Orden sugerido: C6 → C1 → D1 → C7 → D2 → A5; C1 en
+Orden sugerido: C1 (diseño final del mono, con Fede) → D2 → A5 → D3 → C1 → D1 → C7 → D2 → A5; C1 en
 paralelo desde ya, para que Fede elija el mono mientras se arma la API.
 
 ---
@@ -82,7 +82,7 @@ mueve el balance).
 contraseña con scrypt), token firmado con `AUTH_SECRET`, guard global, cada consulta
 filtra por `usuarioId`. Tests de que un usuario no ve datos de otro.
 
-**C2-C5 · Front de la pantalla del mes** — Hechas el 20/10/2026 (versión 1, con el mono provisorio): login/registro o demo, hoja de alta y edición, pagar con un toque, usos de reserva, saldo e ingreso, aviso de cobro, navegación de meses con flechas, teclado y deslizar. Probado de punta a punta con Playwright contra un Mongo en memoria. C6 en curso: hoy el onboarding es solo la hoja de saldo e ingreso al crear la cuenta.
+**C2-C5 · Front de la pantalla del mes** — Hechas el 20/10/2026 (versión 1, con el mono provisorio): login/registro o demo, hoja de alta y edición, pagar con un toque, usos de reserva, saldo e ingreso, aviso de cobro, navegación de meses con flechas, teclado y deslizar. Probado de punta a punta con Playwright contra un Mongo en memoria. C6 hecha el 20/10: onboarding en 5 pasos con Mona (saldo, ingreso, fijos comunes, reservas comunes, cierre con el ahorro). C7 hecha: manifest, íconos, service worker (abre sin señal, /api nunca se guarda). D1 hecha: ánimo "rica" con anteojos, ojos que siguen el dedo, reacción al tocarla.
 
 **M1-M4 · Mejoras pedidas por Fede (20/10/2026)** — "cuando usás más de lo que tenés en
 una reserva, que aparezca en negativo; al mes siguiente puede aparecer una sugerencia de
