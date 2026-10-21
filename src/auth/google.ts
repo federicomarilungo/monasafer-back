@@ -5,7 +5,7 @@ import { OAuth2Client } from 'google-auth-library';
  * HTML de cualquier sitio que use el botón. Se puede pisar con GOOGLE_CLIENT_ID.
  * Vacío = el botón no aparece y POST /auth/google responde 503.
  */
-const CLIENT_ID_PROD = '';
+const CLIENT_ID_PROD = '292625645919-j25vio8d6ibnd9kh6k9mqhginl04fnjo.apps.googleusercontent.com';
 
 export function googleClientId(): string {
   return (process.env.GOOGLE_CLIENT_ID ?? CLIENT_ID_PROD).trim();
