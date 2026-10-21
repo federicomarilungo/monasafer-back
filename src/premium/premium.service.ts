@@ -37,6 +37,7 @@ export type Funcion = (typeof FUNCIONES)[number];
 const precioArs = () => Number(process.env.PREMIUM_PRECIO_ARS ?? 3000);
 const presupuestoDiario = () => Number(process.env.IA_PRESUPUESTO_DIARIO_USD ?? 1);
 const MENSAJES_DIARIOS_PREMIUM = 60;
+export const USOS_GRATIS = { metricas: 3, asistente: 10 };
 
 @Injectable()
 export class PremiumService {
@@ -206,16 +207,32 @@ export class PremiumService {
     };
   }
 
+  /**
+   * Arranca la suscripción en Mercado Pago. Si el cobro no se puede iniciar (pagos sin
+   * configurar o MP falla), no bloqueamos a nadie: se reinician los usos gratis y la
+   * persona sigue usando premium (Fede, 21/10). El límite de 5 intentos por hora del
+   * controller acota cuántas veces se pueden reiniciar.
+   */
   async suscribir(usuarioId: string, emailPago: string | null) {
-    if (!this.mp.configurado())
-      throw new ServiceUnavailableException('Los pagos todavía no están activos');
     const u = await this.usuario(usuarioId);
-    const pre = await this.mp.crearSuscripcion({
-      usuarioId: String(u._id),
-      emailPago: emailPago ?? u.email,
-      monto: precioArs(),
-      volverA: `${urlApp()}/#premium`,
-    });
+    let pre: PreapprovalMp | null = null;
+    if (this.mp.configurado()) {
+      try {
+        pre = await this.mp.crearSuscripcion({
+          usuarioId: String(u._id),
+          emailPago: emailPago ?? u.email,
+          monto: precioArs(),
+          volverA: `${urlApp()}/#premium`,
+        });
+      } catch (e) {
+        console.error(`[pagos] no se pudo crear la suscripción de ${u._id}: ${(e as Error).message}`);
+      }
+    }
+    if (!pre?.init_point) {
+      const usosGratis = { ...USOS_GRATIS };
+      await this.usuarios.updateOne({ _id: u._id }, { $set: { usosGratis } });
+      return { url: null, regalo: true, usosGratis };
+    }
     await this.suscripciones.create({
       usuarioId: u._id,
       proveedor: 'mercadopago',
@@ -224,7 +241,6 @@ export class PremiumService {
       monto: precioArs(),
       moneda: 'ARS',
     });
-    if (!pre.init_point) throw new ServiceUnavailableException('Mercado Pago no devolvió el link');
     return { url: pre.init_point };
   }
 

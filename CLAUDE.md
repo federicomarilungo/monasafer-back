@@ -69,7 +69,9 @@ Sin `MONGO_URI` la API levanta solo con `GET /ping`, `GET /salud` y `POST /admin
   queda en `uso_ia` (tokens y costo); tope global `IA_PRESUPUESTO_DIARIO_USD` (default 1)
   y 60 mensajes por día por premium. Si cambiás de modelo, agregá su precio en `PRECIOS`.
 - Suscripción web con Mercado Pago (`MP_ACCESS_TOKEN`, precio `PREMIUM_PRECIO_ARS`,
-  default 3000): `POST /premium/suscribir` crea el preapproval y devuelve el link de pago;
+  default 3000): `POST /premium/suscribir` crea el preapproval y devuelve el link de pago (si
+  el cobro no se puede iniciar, reinicia `usosGratis` y devuelve `{url:null, regalo:true}`:
+  no se bloquea a nadie porque no le pudimos cobrar);
   `POST /pagos/mercadopago` (webhook público) relee la suscripción en la API de MP y, si
   está `authorized`, extiende premium hasta el próximo cobro + 3 días; `POST
   /premium/sincronizar` hace lo mismo al volver; `POST /premium/cancelar` corta la

@@ -288,6 +288,26 @@ describe('API de Monasafer', () => {
     expect(fin.body.requierePremium).toBe(true);
   });
 
+  it('si no se puede iniciar el cobro, se reinician los usos gratis y nadie queda bloqueado', async () => {
+    const c = await cuenta('sinpago@test.com');
+    for (let i = 0; i < 3; i++) await http.post('/premium/usar').set(c.auth).send({ funcion: 'metricas' }).expect(200);
+    const no = await http.post('/premium/usar').set(c.auth).send({ funcion: 'metricas' }).expect(200);
+    expect(no.body.permitido).toBe(false);
+
+    (mp.configurado as jest.Mock).mockReturnValueOnce(false);
+    const r = await http.post('/premium/suscribir').set(c.auth).send({}).expect(200);
+    expect(r.body).toEqual({ url: null, regalo: true, usosGratis: { metricas: 3, asistente: 10 } });
+    const si = await http.post('/premium/usar').set(c.auth).send({ funcion: 'metricas' }).expect(200);
+    expect(si.body).toMatchObject({ permitido: true, quedan: 2 });
+
+    // Mercado Pago se cae: lo mismo
+    (mp.crearSuscripcion as jest.Mock).mockRejectedValueOnce(new Error('MP 500'));
+    const r2 = await http.post('/premium/suscribir').set(c.auth).send({}).expect(200);
+    expect(r2.body.regalo).toBe(true);
+    const p = await http.get('/perfil').set(c.auth).expect(200);
+    expect(p.body.usosGratis.metricas).toBe(3);
+  });
+
   it('suscripción web: Mercado Pago autoriza, la notificación activa premium; borrar la cuenta la cancela', async () => {
     const c = await cuenta('paga@test.com');
     const conf = await http.get('/premium/config').expect(200);
