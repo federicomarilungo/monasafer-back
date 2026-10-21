@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Datos, mesDe, proyectar, resumenDelMes, sumarMeses } from '../motor';
+import { Datos, historial, mesDe, proyectar, resumenDelMes, sumarMeses } from '../motor';
 import { hashClave, Tokens, verificarClave } from '../auth/tokens';
 import { googleClientId, VerificadorGoogle } from '../auth/google';
 import { Sesiones } from '../auth/usuario.guard';
@@ -271,7 +271,7 @@ export class MonasaferService implements Sesiones {
   async archivarGasto(usuarioId: string, gastoId: string) {
     const r = await this.gastos.updateOne(
       { _id: oid(gastoId), usuarioId: oid(usuarioId) },
-      { $set: { archivado: true } },
+      { $set: { archivado: true, archivadoEn: this.hoy() } },
     );
     if (!r.matchedCount) throw new NotFoundException();
     return { ok: true };
@@ -441,6 +441,45 @@ export class MonasaferService implements Sesiones {
         monto: x.monto,
       })),
     };
+  }
+
+  /**
+   * Lo gastado en los últimos `meses` meses cerrados (sin el actual), con los gastos
+   * borrados incluidos hasta que se borraron. Para las métricas: cuánto se ve lo decide
+   * el front según premium, porque son datos de la misma persona.
+   */
+  async historial(usuarioId: string, meses: number) {
+    const id = oid(usuarioId);
+    const actual = mesDe(this.hoy());
+    const desde = sumarMeses(actual, -meses);
+    const hasta = sumarMeses(actual, -1);
+    const [gastos, estados, usos] = await Promise.all([
+      this.gastos.find({ usuarioId: id, mesInicio: { $lte: hasta } }).lean(),
+      this.meses.find({ usuarioId: id, mes: { $gte: desde, $lte: hasta } }).lean(),
+      this.usos.find({ usuarioId: id, mes: { $gte: desde, $lte: hasta } }).lean(),
+    ]);
+    return historial(
+      {
+        gastos: gastos.map((g) => {
+          const archivo = g.archivado
+            ? (g.archivadoEn ?? (g as { updatedAt?: Date }).updatedAt ?? null)
+            : null;
+          return {
+            ...this.gastoPublico(g),
+            mesArchivo: archivo ? mesDe(new Date(archivo)) : null,
+          };
+        }),
+        estados: estados.map((e) => ({
+          gastoId: String(e.gastoId),
+          mes: e.mes,
+          pagado: e.pagado,
+          montoDelMes: e.montoDelMes,
+        })),
+        usos: usos.map((x) => ({ gastoId: String(x.gastoId), mes: x.mes, monto: x.monto })),
+      },
+      desde,
+      hasta,
+    );
   }
 
   async resumen(usuarioId: string, mes: string) {
