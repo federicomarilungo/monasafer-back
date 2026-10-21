@@ -71,4 +71,21 @@ describe('historial', () => {
     const pagado = { ...datos, estados: [{ gastoId: 'g', mes: '2026-08', pagado: true }] };
     expect(historial(pagado, '2026-07', '2026-09').map((m) => m.total)).toEqual([USD(30), USD(30), 0]);
   });
+
+  it('mismos números que el front (src/motor.test.js)', () => {
+    const gym: GastoHistorial = { ...alquiler, id: 'g', nombre: 'Gimnasio', monto: USD(30), mesArchivo: '2026-08' };
+    const h = historial(
+      {
+        gastos: [alquiler, super_, cena, gym],
+        estados: [{ gastoId: 'a', mes: '2026-08', pagado: true, montoDelMes: USD(520) }],
+        usos: [
+          { gastoId: 's', mes: '2026-08', monto: USD(120) },
+          { gastoId: 's', mes: '2026-08', monto: USD(90) },
+        ],
+      },
+      '2026-05',
+      '2026-09',
+    );
+    expect(h.map((m) => m.total)).toEqual([0, USD(530), USD(530), USD(520 + 210 + 40), USD(500)]);
+  });
 });
