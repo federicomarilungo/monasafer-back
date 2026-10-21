@@ -333,20 +333,31 @@ export class PremiumService {
     const ahora = Date.now();
     if (ahora - (this.ultimaPendiente.get(usuarioId) ?? 0) < 60 * 1000) return;
     this.ultimaPendiente.set(usuarioId, ahora);
-    const s = await this.suscripciones
-      .findOne({
+    await this.buscarEnPlanes(usuarioId);
+  }
+
+  /**
+   * Revisa en MP todos los planes de los últimos 7 días sin suscripción asociada, no solo el
+   * último: Fede pagó un plan y después tocó "Quiero Premium" otra vez, y el plan nuevo
+   * (vacío) tapaba al pagado.
+   */
+  private async buscarEnPlanes(usuarioId: string) {
+    const pendientes = await this.suscripciones
+      .find({
         usuarioId: new Types.ObjectId(usuarioId),
         planId: { $ne: null },
         externoId: null,
-        createdAt: { $gte: new Date(ahora - 7 * DIA_MS) },
+        createdAt: { $gte: new Date(Date.now() - 7 * DIA_MS) },
       })
       .sort({ createdAt: -1 })
+      .limit(10)
       .lean();
-    if (!s?.planId) return;
-    try {
-      for (const pre of await this.mp.buscarPorPlan(s.planId)) await this.refrescar(pre.id);
-    } catch (e) {
-      console.error('[pagos] no se pudo revisar el plan pendiente', e);
+    for (const s of pendientes) {
+      try {
+        for (const pre of await this.mp.buscarPorPlan(s.planId!)) await this.refrescar(pre.id);
+      } catch (e) {
+        console.error('[pagos] no se pudo revisar el plan pendiente', e);
+      }
     }
   }
 
@@ -371,10 +382,8 @@ export class PremiumService {
       .findOne({ usuarioId: u._id })
       .sort({ createdAt: -1 });
     if (ultima?.externoId && this.mp.configurado()) await this.refrescar(ultima.externoId);
-    else if (ultima?.planId && this.mp.configurado()) {
-      // Volvió del checkout antes de que llegue la notificación: buscamos por el plan.
-      for (const pre of await this.mp.buscarPorPlan(ultima.planId)) await this.refrescar(pre.id);
-    }
+    // Volvió del checkout antes de que llegue la notificación: buscamos por los planes.
+    if (this.mp.configurado()) await this.buscarEnPlanes(usuarioId);
     return this.estado(usuarioId);
   }
 
