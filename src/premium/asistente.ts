@@ -149,7 +149,7 @@ export const HERRAMIENTAS: Anthropic.Tool[] = [
   {
     name: 'borrar_gasto',
     description:
-      'Propone sacar un gasto de la lista por completo (todos sus meses). Para un gasto de un solo mes, o si la persona quiere que desaparezca.',
+      'Propone sacar un gasto de la lista por completo, también de los meses anteriores. Para un gasto de un solo mes, uno que todavía no empezó, o si la persona pide explícitamente borrar también lo pasado.',
     input_schema: {
       type: 'object',
       properties: { gasto_id: { type: 'string' } },
@@ -207,7 +207,8 @@ Reglas:
 - Cuotas: "6 cuotas" = gasto fijo de 6 meses; si te dan el total, monto_mensual = total / cuotas (redondeá a 2 decimales).
 - Montos en ${p.moneda}, sin centavos de más. Mes actual: ${mes}. Fecha de hoy: ${p.hoy.toISOString().slice(0, 10)}.
 - Para tocar un gasto que ya existe, elegilo de la lista por su id (buscalo por nombre aunque lo escriban distinto). Si hay dudas entre dos, preguntá.
-- "Sacar" un gasto de un solo mes = borrar_gasto. Si se repite y quiere sacarlo solo de un mes = monto_del_mes con 0; desde un mes en adelante = terminar_gasto; del todo = borrar_gasto.
+- "Sacar" un gasto de un solo mes = borrar_gasto. Si se repite y quiere sacarlo solo de un mes = monto_del_mes con 0; desde un mes en adelante = terminar_gasto; del todo (también los meses pasados) = borrar_gasto.
+- Si dice "borrá" o "sacá" un gasto que se repite y ya empezó antes de este mes, sin aclarar, lo más probable es que lo quiera terminar: terminar_gasto con ultimo_mes = el mes anterior (o este, si este mes ya lo pagó), así los meses pasados no quedan con información falsa. borrar_gasto solo si pide borrar todo.
 - Respuestas cortas, cálidas y con un toque de humor de mona, en ${p.idioma === 'en' ? 'inglés' : 'castellano rioplatense'}. Nada de consejos financieros ni temas ajenos a la app.
 La persona se llama ${p.nombre || '(sin nombre)'}.${p.saldo !== undefined ? ` Saldo hoy: ${p.saldo / 100} ${p.moneda}.` : ''}${p.ingreso ? ` Ingreso: ${p.ingreso.monto / 100} ${p.moneda} por mes, cobra el día ${p.ingreso.diaCobro}.` : ''}
 Sus gastos activos:

@@ -277,6 +277,19 @@ export class MonasaferService implements Sesiones {
     return { ok: true };
   }
 
+  /** Deshacer un borrado: el front lo ofrece unos segundos después de borrar. */
+  async restaurarGasto(usuarioId: string, gastoId: string) {
+    const g = await this.gastos
+      .findOneAndUpdate(
+        { _id: oid(gastoId), usuarioId: oid(usuarioId) },
+        { $set: { archivado: false } },
+        { new: true },
+      )
+      .lean();
+    if (!g) throw new NotFoundException();
+    return this.gastoPublico(g);
+  }
+
   private async gastoDe(usuarioId: string, gastoId: string) {
     const g = await this.gastos
       .findOne({

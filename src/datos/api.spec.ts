@@ -513,6 +513,9 @@ describe('API de Monasafer', () => {
     // Archivar saca el gasto de todo
     await http.delete(`/gastos/${tr.id}`).set(auth).expect(200);
     expect((await http.get('/gastos').set(auth)).body).toHaveLength(3);
+    // y Deshacer lo trae de vuelta
+    await http.post(`/gastos/${tr.id}/restaurar`).set(auth).expect(200);
+    expect((await http.get('/gastos').set(auth)).body).toHaveLength(4);
   });
 
   it('un usuario no puede ver ni tocar lo de otro', async () => {
@@ -541,6 +544,7 @@ describe('API de Monasafer', () => {
       .set(b.auth)
       .expect(404);
     await http.delete(`/gastos/${g.id}`).set(b.auth).expect(404);
+    await http.post(`/gastos/${g.id}/restaurar`).set(b.auth).expect(404);
   });
 
   it('rechaza datos inválidos', async () => {
