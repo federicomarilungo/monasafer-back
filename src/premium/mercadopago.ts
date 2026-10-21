@@ -9,6 +9,12 @@ export interface PreapprovalMp {
   external_reference?: string;
   next_payment_date?: string;
   init_point?: string;
+  preapproval_plan_id?: string;
+}
+
+export interface PlanMp {
+  id: string;
+  init_point?: string;
 }
 
 const API = 'https://api.mercadopago.com';
@@ -34,25 +40,32 @@ export class MercadoPago {
     return datos;
   }
 
-  crearSuscripcion(p: {
-    usuarioId: string;
-    emailPago: string;
-    monto: number; // en pesos, no centavos: así lo pide Mercado Pago
-    volverA: string;
-  }) {
-    return this.pedir<PreapprovalMp>('POST', '/preapproval', {
+  /**
+   * Un plan por cada vez que alguien toca "Suscribirme". Con un plan, el checkout de MP deja
+   * pagar con cualquier cuenta: el preapproval suelto pedía que payer_email fuera el de la
+   * cuenta de MP que paga, y si no coincidía MP respondía 400 (lo vimos en la prueba del
+   * 21/10). El plan es de esa persona: así sabemos de quién es la suscripción que nazca.
+   */
+  crearPlan(p: { monto: number; volverA: string }) {
+    return this.pedir<PlanMp>('POST', '/preapproval_plan', {
       reason: 'Monasafer Premium',
-      external_reference: p.usuarioId,
-      payer_email: p.emailPago,
       auto_recurring: {
         frequency: 1,
         frequency_type: 'months',
-        transaction_amount: p.monto,
+        transaction_amount: p.monto, // en pesos, no centavos: así lo pide Mercado Pago
         currency_id: 'ARS',
       },
       back_url: p.volverA,
-      status: 'pending',
     });
+  }
+
+  /** Las suscripciones que nacieron de un plan (por si no llegó la notificación). */
+  async buscarPorPlan(planId: string): Promise<PreapprovalMp[]> {
+    const r = await this.pedir<{ results?: PreapprovalMp[] }>(
+      'GET',
+      `/preapproval/search?preapproval_plan_id=${encodeURIComponent(planId)}`,
+    );
+    return r.results ?? [];
   }
 
   leer(id: string) {

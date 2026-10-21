@@ -102,6 +102,8 @@ export class Suscripcion {
   usuarioId: Types.ObjectId;
   @Prop({ required: true, default: 'mercadopago' }) proveedor: string;
   @Prop({ type: String, default: null, index: true }) externoId: string | null;
+  /** Plan de MP que se creó para esta persona; la suscripción nace de ahí. */
+  @Prop({ type: String, default: null, index: true }) planId: string | null;
   /** pending · authorized · paused · cancelled (los de Mercado Pago). */
   @Prop({ default: 'pending' }) estado: string;
   @Prop({ required: true }) monto: number;

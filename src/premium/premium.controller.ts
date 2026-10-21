@@ -52,10 +52,9 @@ export class PremiumController {
 
   @Post('premium/suscribir')
   @HttpCode(200)
-  suscribir(@UsuarioId() u: string, @Body() body: unknown) {
+  suscribir(@UsuarioId() u: string) {
     this.limite.usar(`suscribir:${u}`, 5, 60 * 60 * 1000);
-    const b = v.objeto(body ?? {});
-    return this.s.suscribir(u, b.emailPago ? v.email(b.emailPago) : null);
+    return this.s.suscribir(u);
   }
 
   @Post('premium/sincronizar')

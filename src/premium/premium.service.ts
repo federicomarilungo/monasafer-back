@@ -221,22 +221,17 @@ export class PremiumService {
    * persona sigue usando premium (Fede, 21/10). El límite de 5 intentos por hora del
    * controller acota cuántas veces se pueden reiniciar.
    */
-  async suscribir(usuarioId: string, emailPago: string | null) {
+  async suscribir(usuarioId: string) {
     const u = await this.usuario(usuarioId);
-    let pre: PreapprovalMp | null = null;
+    let plan: { id: string; init_point?: string } | null = null;
     if (this.mp.configurado()) {
       try {
-        pre = await this.mp.crearSuscripcion({
-          usuarioId: String(u._id),
-          emailPago: emailPago ?? u.email,
-          monto: precioArs(),
-          volverA: `${urlApp()}/#premium`,
-        });
+        plan = await this.mp.crearPlan({ monto: precioArs(), volverA: `${urlApp()}/#premium` });
       } catch (e) {
-        console.error(`[pagos] no se pudo crear la suscripción de ${u._id}: ${(e as Error).message}`);
+        console.error(`[pagos] no se pudo crear el plan de ${u._id}: ${(e as Error).message}`);
       }
     }
-    if (!pre?.init_point) {
+    if (!plan?.init_point) {
       const usosGratis = { ...USOS_GRATIS };
       await this.usuarios.updateOne({ _id: u._id }, { $set: { usosGratis } });
       return { url: null, regalo: true, usosGratis };
@@ -244,18 +239,36 @@ export class PremiumService {
     await this.suscripciones.create({
       usuarioId: u._id,
       proveedor: 'mercadopago',
-      externoId: pre.id,
-      estado: pre.status ?? 'pending',
+      planId: plan.id,
+      externoId: null,
+      estado: 'pending',
       monto: precioArs(),
       moneda: 'ARS',
     });
-    return { url: pre.init_point };
+    return { url: plan.init_point };
   }
 
   /** Lee el estado real en Mercado Pago y actualiza la suscripción y el premium. */
   async refrescar(preapprovalId: string) {
     const pre = await this.mp.leer(preapprovalId);
-    const s = await this.suscripciones.findOne({ externoId: pre.id });
+    let s = await this.suscripciones.findOne({ externoId: pre.id });
+    if (!s && pre.preapproval_plan_id) {
+      // Primera noticia de una suscripción que nació de nuestro plan.
+      const delPlan = await this.suscripciones.findOne({ planId: pre.preapproval_plan_id });
+      if (delPlan && !delPlan.externoId) {
+        delPlan.externoId = pre.id;
+        s = delPlan;
+      } else if (delPlan) {
+        s = await this.suscripciones.create({
+          usuarioId: delPlan.usuarioId,
+          proveedor: 'mercadopago',
+          planId: delPlan.planId,
+          externoId: pre.id,
+          monto: delPlan.monto,
+          moneda: delPlan.moneda,
+        });
+      }
+    }
     if (!s) {
       console.warn(`[pagos] suscripción desconocida ${pre.id}`);
       return null;
@@ -330,6 +343,10 @@ export class PremiumService {
       .findOne({ usuarioId: u._id })
       .sort({ createdAt: -1 });
     if (ultima?.externoId && this.mp.configurado()) await this.refrescar(ultima.externoId);
+    else if (ultima?.planId && this.mp.configurado()) {
+      // Volvió del checkout antes de que llegue la notificación: buscamos por el plan.
+      for (const pre of await this.mp.buscarPorPlan(ultima.planId)) await this.refrescar(pre.id);
+    }
     return this.estado(usuarioId);
   }
 

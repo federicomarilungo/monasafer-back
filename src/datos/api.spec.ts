@@ -21,7 +21,7 @@ describe('API de Monasafer', () => {
   let http: ReturnType<typeof request>;
   const correos: { para: string; html: string }[] = [];
   let mp: MercadoPago;
-  const preapprovals = new Map<string, { id: string; status: string; external_reference: string; next_payment_date: string }>();
+  const preapprovals = new Map<string, { id: string; status: string; external_reference?: string; preapproval_plan_id?: string; next_payment_date: string }>();
 
   beforeAll(async () => {
     process.env.AUTH_SECRET = 's'.repeat(40);
@@ -58,11 +58,13 @@ describe('API de Monasafer', () => {
     // Mercado Pago falso en memoria.
     mp = mod.get(MercadoPago);
     jest.spyOn(mp, 'configurado').mockReturnValue(true);
-    jest.spyOn(mp, 'crearSuscripcion').mockImplementation(async (p) => {
-      const id = `pre-${preapprovals.size + 1}`;
-      preapprovals.set(id, { id, status: 'pending', external_reference: p.usuarioId, next_payment_date: '2026-11-20T10:00:00.000-03:00' });
-      return { id, status: 'pending', init_point: `https://mp.test/checkout/${id}` };
+    let planes = 0;
+    jest.spyOn(mp, 'crearPlan').mockImplementation(async () => {
+      const id = `plan-${++planes}`;
+      return { id, init_point: `https://mp.test/checkout/${id}` };
     });
+    jest.spyOn(mp, 'buscarPorPlan').mockImplementation(async (planId) =>
+      [...preapprovals.values()].filter((x) => x.preapproval_plan_id === planId));
     jest.spyOn(mp, 'leer').mockImplementation(async (id) => preapprovals.get(id)!);
     jest.spyOn(mp, 'cancelar').mockImplementation(async (id) => {
       preapprovals.get(id)!.status = 'cancelled';
@@ -301,7 +303,7 @@ describe('API de Monasafer', () => {
     expect(si.body).toMatchObject({ permitido: true, quedan: 2 });
 
     // Mercado Pago se cae: lo mismo
-    (mp.crearSuscripcion as jest.Mock).mockRejectedValueOnce(new Error('MP 500'));
+    (mp.crearPlan as jest.Mock).mockRejectedValueOnce(new Error('MP 500'));
     const r2 = await http.post('/premium/suscribir').set(c.auth).send({}).expect(200);
     expect(r2.body.regalo).toBe(true);
     const p = await http.get('/perfil').set(c.auth).expect(200);
@@ -314,9 +316,13 @@ describe('API de Monasafer', () => {
     expect(conf.body).toMatchObject({ pagos: true, asistente: true, precio: { moneda: 'ARS' } });
     const s = await http.post('/premium/suscribir').set(c.auth).send({}).expect(200);
     expect(s.body.url).toMatch(/^https:\/\/mp\.test\/checkout\//);
-    const id = s.body.url.split('/').pop();
-    // la persona paga en Mercado Pago
-    preapprovals.get(id)!.status = 'authorized';
+    const planId = s.body.url.split('/').pop();
+    // la persona paga en Mercado Pago con cualquier cuenta: nace una suscripción del plan
+    const id = `pre-de-${planId}`;
+    preapprovals.set(id, { id, status: 'authorized', preapproval_plan_id: planId, next_payment_date: '2026-11-20T10:00:00.000-03:00' });
+    // vuelve antes de que llegue la notificación: el back la encuentra por el plan
+    const sync = await http.post('/premium/sincronizar').set(c.auth).expect(200);
+    expect(sync.body.premium).toBe(true);
     await http.post('/pagos/mercadopago').send({ type: 'subscription_preapproval', data: { id } }).expect(200);
     const p = await http.get('/perfil').set(c.auth).expect(200);
     expect(p.body.premium.activo).toBe(true);
