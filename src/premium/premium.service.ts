@@ -131,7 +131,15 @@ export class PremiumService {
     let respuesta;
     try {
       respuesta = await this.ia.preguntar(
-        promptSistema({ hoy, moneda: u.moneda, idioma: u.idioma, nombre: u.nombre, gastos }),
+        promptSistema({
+          hoy,
+          moneda: u.moneda,
+          idioma: u.idioma,
+          nombre: u.nombre,
+          gastos,
+          saldo: u.saldo,
+          ingreso: u.ingresoMensual ?? null,
+        }),
         mensajes,
       );
     } catch (e) {

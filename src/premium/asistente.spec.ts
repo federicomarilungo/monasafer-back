@@ -4,6 +4,7 @@ const hoy = new Date(2026, 9, 20); // 20/10/2026
 const gastos: GastoContexto[] = [
   { id: 'luz', nombre: 'Luz', emoji: '💡', tipo: 'fijo', monto: 3000, mesInicio: '2026-01', mesFin: null, pagadoEsteMes: false },
   { id: 'nafta', nombre: 'Nafta', emoji: '⛽', tipo: 'reserva', monto: 20000, mesInicio: '2026-01', mesFin: null, pagadoEsteMes: false },
+  { id: 'prueba', nombre: 'prueba', emoji: '💸', tipo: 'puntual', monto: 1000, mesInicio: '2026-10', mesFin: null, pagadoEsteMes: false },
 ];
 
 describe('asistente: interpretar lo que propone el modelo', () => {
@@ -46,6 +47,30 @@ describe('asistente: interpretar lo que propone el modelo', () => {
     expect(interpretarHerramienta('usar_reserva', { gasto_id: 'nafta', monto: 30, nota: 'YPF' }, gastos, hoy))
       .toEqual({ accion: 'usar_reserva', gastoId: 'nafta', monto: 3000, nota: 'YPF', nombre: 'Nafta' });
     expect(interpretarHerramienta('usar_reserva', { gasto_id: 'luz', monto: 30, nota: '' }, gastos, hoy)).toBeNull();
+  });
+
+  it('"sacar el gasto prueba de octubre": borrar; editar, monto de un mes y terminar validan el gasto', () => {
+    expect(interpretarHerramienta('borrar_gasto', { gasto_id: 'prueba' }, gastos, hoy))
+      .toEqual({ accion: 'borrar_gasto', gastoId: 'prueba', nombre: 'prueba' });
+    expect(interpretarHerramienta('borrar_gasto', { gasto_id: 'inventado' }, gastos, hoy)).toBeNull();
+    expect(interpretarHerramienta('editar_gasto', { gasto_id: 'luz', nombre: null, emoji: null, monto_mensual: 45 }, gastos, hoy))
+      .toEqual({ accion: 'editar_gasto', gastoId: 'luz', nombre: 'Luz', cambios: { monto: 4500 } });
+    expect(interpretarHerramienta('editar_gasto', { gasto_id: 'luz', nombre: null, emoji: null, monto_mensual: null }, gastos, hoy)).toBeNull();
+    // la luz de este mes no se paga; un puntual o un mes pasado no aceptan monto del mes
+    expect(interpretarHerramienta('monto_del_mes', { gasto_id: 'luz', mes: '2026-10', monto: 0 }, gastos, hoy))
+      .toEqual({ accion: 'monto_del_mes', gastoId: 'luz', mes: '2026-10', monto: 0, nombre: 'Luz' });
+    expect(interpretarHerramienta('monto_del_mes', { gasto_id: 'prueba', mes: '2026-10', monto: 5 }, gastos, hoy)).toBeNull();
+    expect(interpretarHerramienta('monto_del_mes', { gasto_id: 'luz', mes: '2026-09', monto: 5 }, gastos, hoy)).toBeNull();
+    expect(interpretarHerramienta('terminar_gasto', { gasto_id: 'luz', ultimo_mes: '2026-11' }, gastos, hoy))
+      .toEqual({ accion: 'terminar_gasto', gastoId: 'luz', mesFin: '2026-11', nombre: 'Luz' });
+    expect(interpretarHerramienta('terminar_gasto', { gasto_id: 'prueba', ultimo_mes: '2026-11' }, gastos, hoy)).toBeNull();
+  });
+
+  it('saldo e ingreso', () => {
+    expect(interpretarHerramienta('cambiar_saldo', { saldo: 1234.5 }, gastos, hoy)).toEqual({ accion: 'cambiar_saldo', saldo: 123450 });
+    expect(interpretarHerramienta('cambiar_ingreso', { monto: 900000, dia_cobro: 31 }, gastos, hoy))
+      .toEqual({ accion: 'cambiar_ingreso', monto: 90000000, diaCobro: 28 });
+    expect(interpretarHerramienta('cambiar_ingreso', { monto: 0, dia_cobro: 5 }, gastos, hoy)).toBeNull();
   });
 
   it('historial: empieza y termina con el usuario y junta mensajes seguidos', () => {

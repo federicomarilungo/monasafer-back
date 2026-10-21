@@ -64,7 +64,8 @@ Sin `MONGO_URI` la API levanta solo con `GET /ping`, `GET /salud` y `POST /admin
 - `POST /premium/usar {funcion}`: gasta una vista gratis (o nada si es premium).
 - `POST /asistente {mensajes:[{rol, texto}]}`: Claude Haiku 5.5 (`@anthropic-ai/sdk`,
   `ANTHROPIC_API_KEY`) con herramientas que solo **proponen** (`crear_gasto`,
-  `pagar_gasto`, `usar_reserva`); el front muestra cada propuesta y la persona confirma con
+  `pagar_gasto`, `usar_reserva`, `editar_gasto`, `monto_del_mes`, `terminar_gasto`, `borrar_gasto`,
+  `cambiar_saldo`, `cambiar_ingreso`); el front muestra cada propuesta y la persona confirma con
   los endpoints de siempre. Prompt y validación en `src/premium/asistente.ts`. Cada llamada
   queda en `uso_ia` (tokens y costo); tope global `IA_PRESUPUESTO_DIARIO_USD` (default 1)
   y 60 mensajes por día por premium. Si cambiás de modelo, agregá su precio en `PRECIOS`.
