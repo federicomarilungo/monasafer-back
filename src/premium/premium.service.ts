@@ -306,6 +306,7 @@ export class PremiumService {
   private readonly ultimaRevision = new Map<string, number>();
   async revisarVencido(usuarioId: string) {
     if (!this.mp.configurado() || !Types.ObjectId.isValid(usuarioId)) return;
+    await this.revisarPendiente(usuarioId);
     const u = await this.usuarios.findById(usuarioId, { premiumHasta: 1 }).lean();
     const hasta = u?.premiumHasta?.getTime();
     const ahora = Date.now();
@@ -320,6 +321,33 @@ export class PremiumService {
       await this.refrescar(s.externoId).catch((e) =>
         console.error('[pagos] no se pudo revisar el vencimiento', e),
       );
+  }
+
+  /**
+   * Pagó pero no volvió a la web (el checkout de MP no siempre redirige) y la notificación
+   * no llegó: si tiene un plan de los últimos 7 días sin suscripción asociada, se busca en
+   * MP por el plan. Como mucho una vez por minuto por usuario (Fede, prueba del 21/10).
+   */
+  private readonly ultimaPendiente = new Map<string, number>();
+  private async revisarPendiente(usuarioId: string) {
+    const ahora = Date.now();
+    if (ahora - (this.ultimaPendiente.get(usuarioId) ?? 0) < 60 * 1000) return;
+    this.ultimaPendiente.set(usuarioId, ahora);
+    const s = await this.suscripciones
+      .findOne({
+        usuarioId: new Types.ObjectId(usuarioId),
+        planId: { $ne: null },
+        externoId: null,
+        createdAt: { $gte: new Date(ahora - 7 * DIA_MS) },
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+    if (!s?.planId) return;
+    try {
+      for (const pre of await this.mp.buscarPorPlan(s.planId)) await this.refrescar(pre.id);
+    } catch (e) {
+      console.error('[pagos] no se pudo revisar el plan pendiente', e);
+    }
   }
 
   /** Notificación de Mercado Pago: puede ser de la suscripción o de un cobro mensual. */

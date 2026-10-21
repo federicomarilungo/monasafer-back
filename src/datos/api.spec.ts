@@ -320,9 +320,9 @@ describe('API de Monasafer', () => {
     // la persona paga en Mercado Pago con cualquier cuenta: nace una suscripción del plan
     const id = `pre-de-${planId}`;
     preapprovals.set(id, { id, status: 'authorized', preapproval_plan_id: planId, next_payment_date: '2026-11-20T10:00:00.000-03:00' });
-    // vuelve antes de que llegue la notificación: el back la encuentra por el plan
-    const sync = await http.post('/premium/sincronizar').set(c.auth).expect(200);
-    expect(sync.body.premium).toBe(true);
+    // no vuelve a la web ni llega la notificación: al leer el perfil el back la encuentra por el plan
+    const sync = await http.get('/perfil').set(c.auth).expect(200);
+    expect(sync.body.premium.activo).toBe(true);
     await http.post('/pagos/mercadopago').send({ type: 'subscription_preapproval', data: { id } }).expect(200);
     const p = await http.get('/perfil').set(c.auth).expect(200);
     expect(p.body.premium.activo).toBe(true);
