@@ -174,7 +174,7 @@ export const HERRAMIENTAS: Anthropic.Tool[] = [
       type: 'object',
       properties: {
         monto: { type: 'number', description: 'En la moneda de la persona (no centavos)' },
-        dia_cobro: { type: 'integer', description: '1 a 28' },
+        dia_cobro: { type: 'integer', description: '1 a 31' },
       },
       required: ['monto', 'dia_cobro'],
       additionalProperties: false,
@@ -283,7 +283,7 @@ export function interpretarHerramienta(
     const monto = aCentavos(e.monto);
     const dia = e.dia_cobro;
     if (!monto || typeof dia !== 'number' || !Number.isInteger(dia)) return null;
-    return { accion: 'cambiar_ingreso', monto, diaCobro: Math.min(Math.max(dia, 1), 28) };
+    return { accion: 'cambiar_ingreso', monto, diaCobro: Math.min(Math.max(dia, 1), 31) };
   }
   const g = gastos.find((x) => x.id === e.gasto_id);
   if (!g) return null;
