@@ -73,6 +73,7 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | S6 | Publicar en Play Store como TWA (la PWA empaquetada) | P2 | preguntas | Ambos | C7 |
 | S7 | Suscripción de USD 2/mes con Google Play Billing, verificada en el back | P2 | preguntas | Ambos | S1, S6 |
 | S8 | Pago de la suscripción desde la web (Mercado Pago) | P1 | en revisión | Ambos | S1 |
+| S9 | Videos con recompensa: ver un video entero da créditos premium (web y Play) | P2 | preguntas | Ambos | S1, S6 |
 
 Orden sugerido: C1 (diseño final del mono, con Fede) → D2 → A5 → R1 → D3. La épica S
 (premium) va después de que la app tenga uso diario: primero S1 y S3, que es el gancho;
@@ -211,6 +212,18 @@ cancelaciones. Credencial de cuenta de servicio: la carga Fede en DO (tarea loca
 
 **S8 · Pago web** — Opcional. Mercado Pago o Stripe para quien usa la web; el mismo plan
 de S1 con origen `web`.
+
+**S9 · Videos con recompensa** — Pedido de Fede (21/10/2026), plan de trabajo, sin
+avanzar todavía. Quien no paga puede mirar un video para ganar créditos: 1 video ≈ 2-3
+mensajes de Mona o 1 vista de métricas, con tope diario por persona. Web: anuncios
+rewarded de Google Ad Manager / AdSense (formato "rewarded ad" de GPT); app de Play:
+AdMob rewarded. El crédito se da solo con la visualización completa confirmada: en Play,
+con la verificación del lado del servidor de AdMob (SSV, callback firmado al back); en la
+web, con el evento `rewardedSlotGranted`, y el back suma con su propio tope (un endpoint
+`POST /premium/recompensa` con límite por usuario y por día). Bloqueante: Fede tiene que
+pedir la cuenta de AdSense (y AdMob para Play), que Google aprueba con el sitio ya
+publicado y los legales al día. Actualizar la política de privacidad (cookies de
+anuncios) antes de prender.
 
 **B7 · Entrar con Google** — Pedido de Fede (20/10/2026), sin Firebase ni Supabase. Botón
 oficial de Google Identity Services arriba del formulario; el back verifica el ID token
