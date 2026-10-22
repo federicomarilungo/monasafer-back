@@ -75,6 +75,7 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | S8 | Pago de la suscripción desde la web (Mercado Pago) | P1 | en revisión | Ambos | S1 |
 | S9 | Videos con recompensa: ver un video entero da créditos premium (web y Play) | P2 | preguntas | Ambos | S1, S6 |
 | K1 | Cajón de bananas: balance del mes y acumulado, ahorrar en bolsillos (dólar, BTC, oro…) con auditoría | P1 | en revisión | Claude | B3, C2 |
+| K2 | Predicción de ahorros a futuro en el cajón y en métricas (últimos 3 meses reales o balance de meses futuros); más de 3 meses es premium | P2 | lista | Claude | K1, S2 |
 
 Orden sugerido: C1 (diseño final del mono, con Fede) → D2 → A5 → R1 → D3. La épica S
 (premium) va después de que la app tenga uso diario: primero S1 y S3, que es el gancho;
@@ -272,3 +273,15 @@ auditoría y no son gastos de los meses; se pueden corregir o borrar y el saldo 
 "Volver a la cuenta" devuelve plata al saldo. Sin cotizaciones externas a propósito: la
 persona anota lo que tiene. Gratis (es el corazón de "lo que sobra es ahorro"); lo premium
 podría ser un gráfico de cómo crecieron los ahorros.
+
+**K2 · Predicción de ahorros (pedido de Fede, 22/10/2026)** — En el cajón y en las
+métricas, ver cuánto vas a tener ahorrado más adelante, de dos maneras a elegir:
+1. *Según tus ahorros reales*: el promedio de lo que mandaste al cajón en los últimos 3
+   meses. Si hay menos de 3 meses, se estima con los que haya; si no hay ninguno, esta
+   opción no se muestra.
+2. *Según tus meses futuros*: los balances del mes proyectados por el motor
+   (`partirBalance(...).delMes` de cada mes que viene), como si todo lo que sobra fuera al
+   cajón.
+Hasta 3 meses de estimación es gratis; más es premium (S1). Propuesta: sumar lo estimado al
+total del cajón en la moneda de la cuenta, sin cotizaciones (los bolsillos en otra unidad
+se muestran aparte o se valúan al precio de compra del último ahorro).
