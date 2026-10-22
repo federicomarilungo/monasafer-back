@@ -74,6 +74,8 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | S7 | Suscripción de USD 2/mes con Google Play Billing, verificada en el back | P2 | preguntas | Ambos | S1, S6 |
 | S8 | Pago de la suscripción desde la web (Mercado Pago) | P1 | en revisión | Ambos | S1 |
 | S9 | Videos con recompensa: ver un video entero da créditos premium (web y Play) | P2 | preguntas | Ambos | S1, S6 |
+| S10 | Premium visible en la home (corona, sello) y métricas en dos niveles: normales para todos (3 meses atrás/adelante, categorías del mes), premium con 12 y 12 y el gráfico de una categoría; sin vistas gratis se avisa y se ven las normales | P1 | en revisión | Claude | S2 |
+| S11 | Ideas premium para después (Fede elige): metas de ahorro, alerta "gastás más que tu promedio en X", resumen mensual de Mona, exportar a Excel, accesorios de Mona | P2 | preguntas | Fede | S10 |
 
 Orden sugerido: C1 (diseño final del mono, con Fede) → D2 → A5 → R1 → D3. La épica S
 (premium) va después de que la app tenga uso diario: primero S1 y S3, que es el gancho;

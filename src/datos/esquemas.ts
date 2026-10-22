@@ -65,6 +65,8 @@ export class GastoDb {
   modoReserva: string | null;
   @Prop({ default: false }) recurrente: boolean;
   @Prop({ default: false, index: true }) archivado: boolean;
+  /** Cuándo se archivó, para el historial. Los viejos no lo tienen: se usa updatedAt. */
+  @Prop({ type: Date, default: null }) archivadoEn: Date | null;
 }
 export type GastoDoc = HydratedDocument<GastoDb>;
 export const GastoSchema = SchemaFactory.createForClass(GastoDb);

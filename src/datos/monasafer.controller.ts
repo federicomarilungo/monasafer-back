@@ -246,6 +246,14 @@ export class MonasaferController {
     return this.s.datos(u);
   }
 
+  @Get('historial')
+  historial(@UsuarioId() u: string, @Query('meses') meses?: string) {
+    const n = meses === undefined ? 3 : Number(meses);
+    if (!Number.isInteger(n) || n < 1 || n > 12)
+      throw new BadRequestException('meses va de 1 a 12');
+    return this.s.historial(u, n);
+  }
+
   @Get('meses/:mes')
   resumen(@UsuarioId() u: string, @Param('mes') mes: string) {
     return this.s.resumen(u, v.mes(mes));

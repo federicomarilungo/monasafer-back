@@ -515,6 +515,32 @@ describe('API de Monasafer', () => {
     expect((await http.get('/gastos').set(auth)).body).toHaveLength(3);
   });
 
+  it('historial: lo gastado en los meses pasados, borrados incluidos hasta que se borraron', async () => {
+    const { auth } = await cuenta('historial@test.com');
+    const gym = (
+      await http
+        .post('/gastos')
+        .set(auth)
+        .send({ nombre: 'Gimnasio', emoji: '🏋️', monto: USD(30), tipo: 'fijo', mesInicio: '2026-08' })
+        .expect(201)
+    ).body;
+    await http
+      .post('/gastos')
+      .set(auth)
+      .send({ nombre: 'Cena', monto: USD(40), tipo: 'puntual', mesInicio: '2026-09' })
+      .expect(201);
+    const h = (await http.get('/historial?meses=3').set(auth).expect(200)).body;
+    expect(h.map((m: { mes: string }) => m.mes)).toEqual(['2026-07', '2026-08', '2026-09']);
+    expect(h.map((m: { total: number }) => m.total)).toEqual([0, USD(30), USD(70)]);
+    expect(h[1].gastos[0]).toMatchObject({ nombre: 'Gimnasio', emoji: '🏋️' });
+    // Borrado en octubre: los meses pasados no cambian
+    await http.delete(`/gastos/${gym.id}`).set(auth).expect(200);
+    const h2 = (await http.get('/historial').set(auth).expect(200)).body;
+    expect(h2.map((m: { total: number }) => m.total)).toEqual([0, USD(30), USD(70)]);
+    await http.get('/historial?meses=13').set(auth).expect(400);
+    await http.get('/historial?meses=0').set(auth).expect(400);
+  });
+
   it('un usuario no puede ver ni tocar lo de otro', async () => {
     const a = await cuenta('a@test.com');
     const b = await cuenta('b@test.com');
