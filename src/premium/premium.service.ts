@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   HttpException,
   HttpStatus,
   Injectable,
@@ -17,6 +18,7 @@ import {
   Usuario,
 } from '../datos/esquemas';
 import { urlApp } from '../auth/correo';
+import { esAdmin } from '../auth/admin';
 import { MercadoPago, PreapprovalMp } from './mercadopago';
 import {
   ClienteIa,
@@ -433,5 +435,22 @@ export class PremiumService {
     s.estado = 'cancelled';
     await s.save();
     return this.estado(usuarioId);
+  }
+
+  /**
+   * Solo para las cuentas admin: prende o apaga premium a mano para probarlo. Apagar
+   * también devuelve los usos gratis, así se puede probar de nuevo lo que ve quien no paga.
+   */
+  async prueba(usuarioId: string, activo: boolean) {
+    const u = await this.usuario(usuarioId);
+    if (!esAdmin(u)) throw new ForbiddenException();
+    u.premiumHasta = activo ? new Date(Date.now() + 365 * DIA_MS) : null;
+    if (!activo) u.usosGratis = { ...USOS_GRATIS };
+    await u.save();
+    console.log(`[premium] prueba ${activo ? 'activada' : 'desactivada'} por ${u.email}`);
+    return {
+      premium: { activo: this.esPremium(u), hasta: u.premiumHasta },
+      usosGratis: { metricas: u.usosGratis.metricas, asistente: u.usosGratis.asistente },
+    };
   }
 }

@@ -63,6 +63,15 @@ export class PremiumController {
     return this.s.sincronizar(u);
   }
 
+  /** Botón 👑 del front para probar premium: solo cuentas admin (`src/auth/admin.ts`). */
+  @Post('premium/prueba')
+  @HttpCode(200)
+  prueba(@UsuarioId() u: string, @Body() body: unknown) {
+    const activo = v.objeto(body).activo;
+    if (typeof activo !== 'boolean') throw new BadRequestException('activo: true o false');
+    return this.s.prueba(u, activo);
+  }
+
   @Post('premium/cancelar')
   @HttpCode(200)
   cancelar(@UsuarioId() u: string) {
