@@ -73,6 +73,21 @@ export interface GastoEntrada {
   mesFin: string | null;
   modoReserva: 'proporcional' | 'manual' | null;
   recurrente: boolean;
+  cambiosMonto?: { desde: string; monto: number }[];
+}
+
+/** Cambios de monto desde un mes: uno por mes, ordenados. */
+function cambiosMonto(v: unknown): { desde: string; monto: number }[] {
+  if (!Array.isArray(v) || v.length > 120)
+    throw new BadRequestException('cambiosMonto: lista de hasta 120 cambios');
+  const porMes = new Map<string, number>();
+  for (const c of v) {
+    const o = objeto(c);
+    porMes.set(mes(o.desde, 'cambiosMonto.desde'), monto(o.monto));
+  }
+  return [...porMes]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([desde, m]) => ({ desde, monto: m }));
 }
 
 /** Valida un gasto entero (alta) o parcial (edición, `parcial = true`). */
@@ -98,6 +113,7 @@ export function gasto(body: unknown, parcial = false): Partial<GastoEntrada> {
     out.modoReserva = b.modoReserva as 'proporcional' | 'manual';
   }
   if (tiene('recurrente')) out.recurrente = b.recurrente === true;
+  if (tiene('cambiosMonto')) out.cambiosMonto = cambiosMonto(b.cambiosMonto);
   if (!parcial) {
     if (out.tipo === 'reserva' && !out.modoReserva)
       out.modoReserva = 'proporcional';

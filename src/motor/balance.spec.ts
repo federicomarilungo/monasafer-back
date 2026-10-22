@@ -1,4 +1,10 @@
-import { proyectar, resumenDelMes, restanteReserva, vigente } from './balance';
+import {
+  montoBase,
+  proyectar,
+  resumenDelMes,
+  restanteReserva,
+  vigente,
+} from './balance';
 import { sumarMeses, diasDelMes } from './meses';
 import { Datos, Gasto } from './tipos';
 
@@ -203,5 +209,44 @@ describe('resumenDelMes', () => {
   });
   it('sin gastos ni ingreso, el balance es el saldo', () => {
     expect(resumenDelMes(datos(), hoy, '2027-03')!.balance).toBe(USD(1000));
+  });
+});
+
+describe('cambios de monto desde un mes', () => {
+  // Fede, 22/10: la tarjeta la bajó desde diciembre; octubre y noviembre no cambian.
+  const tarjeta: Gasto = {
+    id: 't',
+    nombre: 'Tarjeta',
+    monto: USD(300),
+    tipo: 'fijo',
+    mesInicio: '2026-03',
+    cambiosMonto: [
+      { desde: '2027-02', monto: USD(150) },
+      { desde: '2026-12', monto: USD(200) },
+    ],
+  };
+  it('rige el último cambio que ya empezó, sin importar el orden', () => {
+    expect(montoBase(tarjeta, '2026-05')).toBe(USD(300));
+    expect(montoBase(tarjeta, '2026-11')).toBe(USD(300));
+    expect(montoBase(tarjeta, '2026-12')).toBe(USD(200));
+    expect(montoBase(tarjeta, '2027-01')).toBe(USD(200));
+    expect(montoBase(tarjeta, '2027-02')).toBe(USD(150));
+  });
+  it('la proyección usa el monto de cada mes y el monto del mes le gana', () => {
+    const [oct, nov, dic, ene] = proyectar(
+      datos({
+        gastos: [tarjeta],
+        estados: [
+          { gastoId: 't', mes: '2027-01', pagado: false, montoDelMes: USD(250) },
+        ],
+      }),
+      hoy,
+      '2027-01',
+    );
+    expect(oct.totalPendiente).toBe(USD(300));
+    expect(nov.totalPendiente).toBe(USD(300));
+    expect(dic.totalPendiente).toBe(USD(200));
+    expect(ene.totalPendiente).toBe(USD(250));
+    expect(ene.balance).toBe(USD(1000 - 300 - 300 - 200 - 250));
   });
 });

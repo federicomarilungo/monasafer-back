@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { mesDe } from '../motor';
+import { Gasto, mesDe, montoBase } from '../motor';
 import {
   GastoDb,
   MesGasto,
@@ -198,7 +198,11 @@ export class PremiumService {
         nombre: g.nombre,
         emoji: g.emoji,
         tipo: g.tipo,
-        monto: g.monto,
+        // El de este mes: si la persona lo cambió desde un mes, Mona ve el que rige hoy.
+        monto: montoBase(
+          { monto: g.monto, cambiosMonto: g.cambiosMonto } as Gasto,
+          mes,
+        ),
         mesInicio: g.mesInicio,
         mesFin: g.mesFin,
         pagadoEsteMes: idsPagados.has(String(g._id)),

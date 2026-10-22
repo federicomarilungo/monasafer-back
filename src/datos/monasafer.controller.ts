@@ -176,6 +176,12 @@ export class MonasaferController {
     return this.s.archivarGasto(u, id);
   }
 
+  @Post('gastos/:id/restaurar')
+  @HttpCode(200)
+  restaurarGasto(@UsuarioId() u: string, @Param('id') id: string) {
+    return this.s.restaurarGasto(u, id);
+  }
+
   @Put('gastos/:id/meses/:mes')
   montoDelMes(
     @UsuarioId() u: string,

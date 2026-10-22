@@ -513,6 +513,29 @@ describe('API de Monasafer', () => {
     // Archivar saca el gasto de todo
     await http.delete(`/gastos/${tr.id}`).set(auth).expect(200);
     expect((await http.get('/gastos').set(auth)).body).toHaveLength(3);
+    // y Deshacer lo trae de vuelta
+    await http.post(`/gastos/${tr.id}/restaurar`).set(auth).expect(200);
+    expect((await http.get('/gastos').set(auth)).body).toHaveLength(4);
+
+    // Cambiar el monto desde un mes no toca los anteriores
+    const editado = (
+      await http
+        .patch(`/gastos/${tr.id}`)
+        .set(auth)
+        .send({
+          cambiosMonto: [
+            { desde: '2026-12', monto: USD(150) },
+            { desde: '2026-12', monto: USD(180) },
+          ],
+        })
+        .expect(200)
+    ).body;
+    expect(editado.cambiosMonto).toEqual([{ desde: '2026-12', monto: USD(180) }]);
+    await http
+      .patch(`/gastos/${tr.id}`)
+      .set(auth)
+      .send({ cambiosMonto: [{ desde: 'diciembre', monto: 1 }] })
+      .expect(400);
   });
 
   it('historial: lo gastado en los meses pasados, borrados incluidos hasta que se borraron', async () => {
@@ -567,6 +590,7 @@ describe('API de Monasafer', () => {
       .set(b.auth)
       .expect(404);
     await http.delete(`/gastos/${g.id}`).set(b.auth).expect(404);
+    await http.post(`/gastos/${g.id}/restaurar`).set(b.auth).expect(404);
   });
 
   it('rechaza datos inválidos', async () => {

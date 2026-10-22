@@ -9,6 +9,18 @@ export function vigente(g: Gasto, mes: Mes): boolean {
   return !g.mesFin || mes <= g.mesFin;
 }
 
+/** Monto de un gasto en un mes: el último cambio que ya rige, o el monto con que nació. */
+export function montoBase(g: Gasto, mes: Mes): number {
+  let vigenteDesde = '';
+  let monto = g.monto;
+  for (const c of g.cambiosMonto ?? [])
+    if (c.desde <= mes && c.desde > vigenteDesde) {
+      vigenteDesde = c.desde;
+      monto = c.monto;
+    }
+  return monto;
+}
+
 /**
  * Lo que queda de una reserva. En el mes actual baja según el modo: proporcional a los
  * días que pasaron (a mitad de mes queda la mitad) o según los usos cargados. En un mes
@@ -34,7 +46,7 @@ function lineas(datos: Datos, mes: Mes, hoy: Date): LineaGasto[] {
       const estado = datos.estados.find(
         (e) => e.gastoId === g.id && e.mes === mes,
       );
-      const monto = estado?.montoDelMes ?? g.monto;
+      const monto = estado?.montoDelMes ?? montoBase(g, mes);
       const pagado = !!estado?.pagado;
       if (g.tipo !== 'reserva') {
         return {
