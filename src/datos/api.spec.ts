@@ -26,6 +26,7 @@ describe('API de Monasafer', () => {
   beforeAll(async () => {
     process.env.AUTH_SECRET = 's'.repeat(40);
     process.env.GOOGLE_CLIENT_ID = 'cliente-test.apps.googleusercontent.com';
+    process.env.ADMIN_EMAILS = 'jefa@gmail.com';
     mongo = await MongoMemoryServer.create();
     const mod = await Test.createTestingModule({
       imports: [AppModule.crear(mongo.getUri('monasafer'))],
@@ -288,6 +289,36 @@ describe('API de Monasafer', () => {
       await http.post('/asistente').set(c.auth).send({ mensajes: [{ rol: 'usuario', texto: 'hola' }] }).expect(200);
     const fin = await http.post('/asistente').set(c.auth).send({ mensajes: [{ rol: 'usuario', texto: 'hola' }] }).expect(200);
     expect(fin.body.requierePremium).toBe(true);
+  });
+
+  it('premium de prueba: solo la cuenta admin, y con Google, lo prende y lo apaga', async () => {
+    // Con contraseña no alcanza aunque el email sea el admin: el registro no verifica el email.
+    const trucho = await cuenta('jefa@gmail.com');
+    expect((await http.get('/perfil').set(trucho.auth)).body.admin).toBeUndefined();
+    await http.post('/premium/prueba').set(trucho.auth).send({ activo: true }).expect(403);
+    const comun = await cuenta('comun@test.com');
+    await http.post('/premium/prueba').set(comun.auth).send({ activo: true }).expect(403);
+    expect((await http.get('/perfil').set(comun.auth)).body.premium.activo).toBe(false);
+
+    const g = await http
+      .post('/auth/google')
+      .send({ credencial: 'google:999:jefa@gmail.com' })
+      .expect(200);
+    const auth = { Authorization: `Bearer ${g.body.token}` };
+    expect(g.body.perfil.admin).toBe(true);
+    await http.post('/premium/prueba').set(auth).send({ activo: 'si' }).expect(400);
+    const on = await http.post('/premium/prueba').set(auth).send({ activo: true }).expect(200);
+    expect(on.body.premium.activo).toBe(true);
+    expect((await http.get('/perfil').set(auth)).body.premium.activo).toBe(true);
+    const u = await http.post('/premium/usar').set(auth).send({ funcion: 'metricas' }).expect(200);
+    expect(u.body).toMatchObject({ permitido: true, premium: true });
+
+    const off = await http.post('/premium/prueba').set(auth).send({ activo: false }).expect(200);
+    expect(off.body).toEqual({
+      premium: { activo: false, hasta: null },
+      usosGratis: { metricas: 3, asistente: 10 },
+    });
+    expect((await http.get('/perfil').set(auth)).body.premium.activo).toBe(false);
   });
 
   it('si no se puede iniciar el cobro, se reinician los usos gratis y nadie queda bloqueado', async () => {
