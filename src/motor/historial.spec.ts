@@ -72,6 +72,17 @@ describe('historial', () => {
     expect(historial(pagado, '2026-07', '2026-09').map((m) => m.total)).toEqual([USD(30), USD(30), 0]);
   });
 
+  it('un gasto editado "de acá en adelante" muestra en cada mes el monto que tenía', () => {
+    const tarjeta: GastoHistorial = {
+      ...alquiler,
+      id: 't',
+      monto: USD(300),
+      cambiosMonto: [{ desde: '2026-08', monto: USD(200) }],
+    };
+    const datos = { gastos: [tarjeta], estados: [], usos: [] };
+    expect(historial(datos, '2026-07', '2026-08').map((m) => m.total)).toEqual([USD(300), USD(200)]);
+  });
+
   it('mismos números que el front (src/motor.test.js)', () => {
     const gym: GastoHistorial = { ...alquiler, id: 'g', nombre: 'Gimnasio', monto: USD(30), mesArchivo: '2026-08' };
     const h = historial(

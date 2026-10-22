@@ -1,5 +1,5 @@
 import { sumarMeses } from './meses';
-import { vigente } from './balance';
+import { montoBase, vigente } from './balance';
 import { EstadoMes, Gasto, Mes, TipoGasto, UsoReserva } from './tipos';
 
 /** Gasto con lo necesario para mirar meses pasados, archivados incluidos. */
@@ -53,7 +53,7 @@ export function historial(
       const monto =
         g.tipo === 'reserva' && g.modoReserva === 'manual' && !pagado
           ? usado
-          : (estado?.montoDelMes ?? g.monto);
+          : (estado?.montoDelMes ?? montoBase(g, mes));
       if (monto <= 0) continue;
       gastos.push({ gastoId: g.id, nombre: g.nombre, emoji: g.emoji ?? '', tipo: g.tipo, monto, pagado });
     }
