@@ -25,6 +25,14 @@ import { PremiumController } from '../premium/premium.controller';
 import { PremiumService } from '../premium/premium.service';
 import { MercadoPago } from '../premium/mercadopago';
 import { ClienteIa } from '../premium/asistente';
+import {
+  Bolsillo,
+  BolsilloSchema,
+  MovimientoCajon,
+  MovimientoCajonSchema,
+} from '../cajon/esquemas';
+import { CajonController } from '../cajon/cajon.controller';
+import { CajonService } from '../cajon/cajon.service';
 
 @Module({
   imports: [
@@ -35,12 +43,15 @@ import { ClienteIa } from '../premium/asistente';
       { name: UsoReservaDb.name, schema: UsoReservaSchema },
       { name: Suscripcion.name, schema: SuscripcionSchema },
       { name: UsoIa.name, schema: UsoIaSchema },
+      { name: Bolsillo.name, schema: BolsilloSchema },
+      { name: MovimientoCajon.name, schema: MovimientoCajonSchema },
     ]),
   ],
-  controllers: [MonasaferController, PremiumController],
+  controllers: [MonasaferController, PremiumController, CajonController],
   providers: [
     MonasaferService,
     PremiumService,
+    CajonService,
     MercadoPago,
     ClienteIa,
     { provide: Tokens, useFactory: () => Tokens.desdeEntorno() },

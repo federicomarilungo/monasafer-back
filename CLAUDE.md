@@ -60,6 +60,22 @@ Sin `MONGO_URI` la API levanta solo con `GET /ping`, `GET /salud` y `POST /admin
 | `GET /meses/:mes`, `GET /proyeccion?hasta=AAAA-MM` | resumen con el motor (hasta 24 meses) |
 | `GET /historial?meses=N` | lo gastado en los N meses cerrados (1 a 12, default 3), con `historial()` del motor; los gastos borrados cuentan hasta el mes en que se borraron (`archivadoEn`). Las métricas normales piden 3, las premium 12 |
 
+## Cajón de bananas (K1)
+
+`src/cajon/`. Bolsillos (`bolsillos`) con su unidad y decimales (USD 2, BTC 8); la
+cantidad es la suma de `movimientos_cajon` (entero de unidades mínimas), que son la
+auditoría: `ahorro` (sale del saldo), `retiro` (vuelve al saldo), `gasto` / `ingreso`
+(se editó el total, con detalle) y `traspaso` (dos movimientos con el mismo `grupo`).
+- `GET /cajon`, `POST/PATCH/DELETE /cajon/bolsillos[/:id]` (solo se borra vacío).
+- `POST /cajon/ahorrar {monto, origen: mes|acumulado, bolsilloId?, cantidad?}`: sin
+  bolsillo va a "Sin asignar" (uno por usuario, en su moneda).
+- `POST /cajon/bolsillos/:id/ajustar {cantidad, detalle}`, `.../retirar {cantidad, monto}`,
+  `POST /cajon/traspasar {desde, hacia, cantidad, cantidadEntra?}`.
+- `PATCH/DELETE /cajon/movimientos/:id`: corrige o borra y ajusta el saldo; nunca deja un
+  bolsillo en negativo.
+`GET /datos` trae `ahorros` del mes para `partirBalance` (motor/ahorro.ts): balance del
+mes + acumulado de meses anteriores.
+
 ## Premium (épica S)
 
 `src/premium/`. Quien no paga tiene usos gratis guardados en el usuario (`usosGratis`:
