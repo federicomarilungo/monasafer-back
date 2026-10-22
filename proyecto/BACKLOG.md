@@ -74,6 +74,7 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | S7 | Suscripción de USD 2/mes con Google Play Billing, verificada en el back | P2 | preguntas | Ambos | S1, S6 |
 | S8 | Pago de la suscripción desde la web (Mercado Pago) | P1 | en revisión | Ambos | S1 |
 | S9 | Videos con recompensa: ver un video entero da créditos premium (web y Play) | P2 | preguntas | Ambos | S1, S6 |
+| K1 | Cajón de bananas: balance del mes y acumulado, ahorrar en bolsillos (dólar, BTC, oro…) con auditoría | P1 | en revisión | Claude | B3, C2 |
 
 Orden sugerido: C1 (diseño final del mono, con Fede) → D2 → A5 → R1 → D3. La épica S
 (premium) va después de que la app tenga uso diario: primero S1 y S3, que es el gancho;
@@ -258,3 +259,16 @@ claves de Fede (`ANTHROPIC_API_KEY`, `MP_ACCESS_TOKEN`). S6/S7 (Play) quedan par
 **I1 · Idioma y moneda** — Castellano e inglés (clave = texto en castellano, `src/i18n.js`
 del front); el idioma del perfil manda cuando hay cuenta. Monedas: USD, ARS, EUR, MXN,
 CLP, COP, UYU, PEN, BRL. Pendiente: los mensajes de error del back siguen en castellano.
+
+**K1 · Cajón de bananas (idea de Fede, 22/10/2026)** — Representa lo que hace una persona
+en la vida real: agarra la plata que le sobró (o la que sabe que no va a gastar) y la
+guarda en algún lado, muchas veces en otra moneda o activo. El balance se parte en dos
+(`partirBalance` del motor): el del mes (ingreso menos gastos enteros del mes) y el
+acumulado de meses anteriores; Mona reacciona a la suma. "Ahorrar" saca plata del saldo
+(con "Todo" o "¿cuánto te queda?") y la pone en un bolsillo, preguntando cuánto quedó en
+su unidad (230 USD); "Omitir" la deja en "Sin asignar" para repartir después. Editar el
+total de un bolsillo pide el detalle (bajó 40 USD: "viaje"). Los movimientos son la
+auditoría y no son gastos de los meses; se pueden corregir o borrar y el saldo se corrige.
+"Volver a la cuenta" devuelve plata al saldo. Sin cotizaciones externas a propósito: la
+persona anota lo que tiene. Gratis (es el corazón de "lo que sobra es ahorro"); lo premium
+podría ser un gráfico de cómo crecieron los ahorros.

@@ -20,6 +20,8 @@ type ReqHttp = { headers: Record<string, unknown>; ip?: string };
 const MIN = 60 * 1000;
 import { MonasaferService } from './monasafer.service';
 import { PremiumService } from '../premium/premium.service';
+import { CajonService } from '../cajon/cajon.service';
+import { mesDe } from '../motor';
 import * as v from './validar';
 import { IDIOMAS, MONEDAS } from './esquemas';
 import { BadRequestException } from '@nestjs/common';
@@ -29,6 +31,7 @@ export class MonasaferController {
   constructor(
     private readonly s: MonasaferService,
     private readonly premium: PremiumService,
+    private readonly cajon: CajonService,
   ) {}
 
   private readonly limite = new Limitador();
@@ -101,6 +104,7 @@ export class MonasaferController {
     if (confirmacion.trim().toLowerCase() !== perfil.email)
       throw new BadRequestException('Escribí tu email para confirmar');
     await this.premium.borrarDatos(u);
+    await this.cajon.borrarDatos(u);
     return this.s.borrarCuenta(u, confirmacion);
   }
 
@@ -241,9 +245,14 @@ export class MonasaferController {
     return this.s.borrarUso(u, id);
   }
 
+  /** Con lo ahorrado al cajón este mes, para partir el balance (motor/ahorro.ts). */
   @Get('datos')
-  datos(@UsuarioId() u: string) {
-    return this.s.datos(u);
+  async datos(@UsuarioId() u: string) {
+    const [datos, ahorros] = await Promise.all([
+      this.s.datos(u),
+      this.cajon.ahorrosDesde(u, mesDe(this.s.hoy())),
+    ]);
+    return { ...datos, ahorros };
   }
 
   @Get('meses/:mes')
