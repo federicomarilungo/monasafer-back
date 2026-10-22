@@ -52,6 +52,7 @@ Sin `MONGO_URI` la API levanta solo con `GET /ping`, `GET /salud` y `POST /admin
 | `POST /perfil/cobrar-ingreso` | suma el ingreso al saldo, una vez por mes |
 | `GET/POST /gastos`, `PATCH/DELETE /gastos/:id` | alta, edición y archivado (DELETE archiva, también los meses pasados: para terminar un fijo se usa `mesFin`) |
 | `POST /gastos/:id/restaurar` | desarchiva (el "Deshacer" del front) |
+| `PATCH /gastos/:id` con `cambiosMonto` | `[{desde, monto}]`: el monto cambia desde ese mes en adelante (el motor usa el último que ya rige), así editar no reescribe los meses anteriores |
 | `PUT /gastos/:id/meses/:mes` | `{montoDelMes}`: monto distinto solo ese mes (null lo saca) |
 | `POST/DELETE /gastos/:id/meses/:mes/pagar` | pagar descuenta del saldo; desmarcar lo devuelve |
 | `GET/POST /gastos/:id/usos`, `DELETE /usos/:id` | usos de reserva (bajan el saldo) |

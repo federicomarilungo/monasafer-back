@@ -104,7 +104,7 @@ export const HERRAMIENTAS: Anthropic.Tool[] = [
   {
     name: 'editar_gasto',
     description:
-      'Propone cambiar el nombre, el emoji o el monto de un gasto de la lista para todos sus meses. Lo que no cambia va en null.',
+      'Propone cambiar el nombre, el emoji o el monto de un gasto de la lista. Lo que no cambia va en null. Si cambia el monto de un gasto que se repite, al confirmar la app le pregunta a la persona si es solo este mes, de este mes en adelante o todos: no hace falta que lo preguntes vos. Si ya dijo que es solo un mes, usá monto_del_mes.',
     input_schema: {
       type: 'object',
       properties: {

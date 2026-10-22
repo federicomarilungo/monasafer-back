@@ -526,6 +526,7 @@ export class MonasaferService implements Sesiones {
       modoReserva: (g.modoReserva ?? undefined) as
         'proporcional' | 'manual' | undefined,
       recurrente: g.recurrente,
+      cambiosMonto: g.cambiosMonto ?? [],
     };
   }
 }

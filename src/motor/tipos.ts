@@ -18,6 +18,16 @@ export interface Gasto {
   modoReserva?: ModoReserva;
   /** Las reservas se repiten todos los meses como un fijo si es true. */
   recurrente?: boolean;
+  /**
+   * Cambios de monto desde un mes en adelante ("la tarjeta baja desde diciembre"), así
+   * editar no reescribe los meses anteriores.
+   */
+  cambiosMonto?: CambioMonto[];
+}
+
+export interface CambioMonto {
+  desde: Mes;
+  monto: number;
 }
 
 /** Estado de un gasto en un mes puntual (meses_gasto). */

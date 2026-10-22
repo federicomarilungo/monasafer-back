@@ -64,6 +64,9 @@ export class GastoDb {
   @Prop({ type: String, default: null, enum: ['proporcional', 'manual', null] })
   modoReserva: string | null;
   @Prop({ default: false }) recurrente: boolean;
+  /** Cambios de monto desde un mes (ver motor): editar no toca los meses anteriores. */
+  @Prop({ type: [{ desde: String, monto: Number, _id: false }], default: [] })
+  cambiosMonto: { desde: string; monto: number }[];
   @Prop({ default: false, index: true }) archivado: boolean;
 }
 export type GastoDoc = HydratedDocument<GastoDb>;

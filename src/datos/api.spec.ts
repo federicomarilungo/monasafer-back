@@ -516,6 +516,26 @@ describe('API de Monasafer', () => {
     // y Deshacer lo trae de vuelta
     await http.post(`/gastos/${tr.id}/restaurar`).set(auth).expect(200);
     expect((await http.get('/gastos').set(auth)).body).toHaveLength(4);
+
+    // Cambiar el monto desde un mes no toca los anteriores
+    const editado = (
+      await http
+        .patch(`/gastos/${tr.id}`)
+        .set(auth)
+        .send({
+          cambiosMonto: [
+            { desde: '2026-12', monto: USD(150) },
+            { desde: '2026-12', monto: USD(180) },
+          ],
+        })
+        .expect(200)
+    ).body;
+    expect(editado.cambiosMonto).toEqual([{ desde: '2026-12', monto: USD(180) }]);
+    await http
+      .patch(`/gastos/${tr.id}`)
+      .set(auth)
+      .send({ cambiosMonto: [{ desde: 'diciembre', monto: 1 }] })
+      .expect(400);
   });
 
   it('un usuario no puede ver ni tocar lo de otro', async () => {
