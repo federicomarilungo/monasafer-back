@@ -5,6 +5,7 @@ import request from 'supertest';
 import { AppModule } from '../app.module';
 import { MonasaferService } from '../datos/monasafer.service';
 import { CajonService } from './cajon.service';
+import { FuenteCotizaciones } from './cotizaciones';
 
 // El cajón de bananas contra un Mongo en memoria. Hoy = 15/10/2026.
 jest.setTimeout(60000);
@@ -272,5 +273,69 @@ describe('Cajón de bananas', () => {
       .send({ nombre: 'BTC', unidad: 'BTC', decimales: 9 })
       .expect(400);
     await http.get('/cajon').expect(401);
+  });
+
+  it('cotizaciones del día: públicas, con MEP para ARS y respaldo si Coinbase falla', async () => {
+    let coinbaseCae = false;
+    const fetchFalso = jest.spyOn(global, 'fetch').mockImplementation((async (
+      url: string,
+    ) => {
+      const respuestas: Record<string, unknown> = {
+        'api.coinbase.com': {
+          data: { rates: { ARS: '1500', EUR: '0.9', BTC: '0.00001' } },
+        },
+        'api.gold-api.com': { price: 4000 },
+        'dolarapi.com': { venta: 1550 },
+        'open.er-api.com': { rates: { ARS: 1490, EUR: 0.91 } },
+        'api.coingecko.com': { bitcoin: { usd: 80000 } },
+      };
+      const host = Object.keys(respuestas).find((h) =>
+        String(url).includes(h),
+      )!;
+      if (host === 'api.coinbase.com' && coinbaseCae)
+        return new Response('', { status: 500 });
+      return new Response(JSON.stringify(respuestas[host]), { status: 200 });
+    }) as typeof fetch);
+    try {
+      const r = (await http.get('/cajon/cotizaciones').expect(200)).body;
+      expect(r.porUsd).toMatchObject({
+        USD: 1,
+        ARS: 1550,
+        EUR: 0.9,
+        BTC: 0.00001,
+        XAU: 1 / 4000,
+      });
+      // Cacheada una hora: no vuelve a buscar.
+      const llamadas = fetchFalso.mock.calls.length;
+      await http.get('/cajon/cotizaciones').expect(200);
+      expect(fetchFalso.mock.calls.length).toBe(llamadas);
+      // Sin caché y con Coinbase caído: open.er-api y CoinGecko.
+      const fuente = app.get(FuenteCotizaciones) as unknown as {
+        cache: unknown;
+      };
+      fuente.cache = null;
+      coinbaseCae = true;
+      const r2 = (await http.get('/cajon/cotizaciones').expect(200)).body;
+      expect(r2.porUsd).toMatchObject({ EUR: 0.91, BTC: 1 / 80000, ARS: 1550 });
+    } finally {
+      fetchFalso.mockRestore();
+    }
+  });
+
+  it('la moneda base del cajón se elige en el perfil', async () => {
+    expect(
+      (await http.get('/perfil').set(auth).expect(200)).body.monedaCajon,
+    ).toBe('ARS');
+    await http
+      .patch('/perfil')
+      .set(auth)
+      .send({ monedaCajon: 'BTC' })
+      .expect(400);
+    const p = await http
+      .patch('/perfil')
+      .set(auth)
+      .send({ monedaCajon: 'USD' })
+      .expect(200);
+    expect(p.body).toMatchObject({ moneda: 'ARS', monedaCajon: 'USD' });
   });
 });

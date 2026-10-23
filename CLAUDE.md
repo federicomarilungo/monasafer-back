@@ -73,6 +73,11 @@ auditoría: `ahorro` (sale del saldo), `retiro` (vuelve al saldo), `gasto` / `in
   `POST /cajon/traspasar {desde, hacia, cantidad, cantidadEntra?}`.
 - `PATCH/DELETE /cajon/movimientos/:id`: corrige o borra y ajusta el saldo; nunca deja un
   bolsillo en negativo.
+- `GET /cajon/cotizaciones` (público a propósito): `{base:'USD', porUsd, fecha}`, unidades
+  de cada código por 1 USD. Coinbase (respaldo open.er-api + CoinGecko), oro de gold-api
+  (respaldo CoinGecko PAX Gold, onza troy) y ARS al dólar MEP de dolarapi. Caché de 1 h
+  (`src/cajon/cotizaciones.ts`). La moneda base es `monedaCajon` del perfil (default: la de
+  la cuenta); el front convierte (un bolsillo en `g` se valúa como oro).
 `GET /datos` trae `ahorros` del mes para `partirBalance` (motor/ahorro.ts): balance del
 mes + acumulado de meses anteriores.
 

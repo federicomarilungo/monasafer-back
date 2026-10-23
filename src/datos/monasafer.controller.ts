@@ -131,6 +131,11 @@ export class MonasaferController {
         throw new BadRequestException(`moneda: ${MONEDAS.join(', ')}`);
       cambios.moneda = b.moneda as string;
     }
+    if (b.monedaCajon !== undefined) {
+      if (!MONEDAS.includes(b.monedaCajon as string))
+        throw new BadRequestException(`monedaCajon: ${MONEDAS.join(', ')}`);
+      cambios.monedaCajon = b.monedaCajon as string;
+    }
     if (b.idioma !== undefined) {
       if (!IDIOMAS.includes(b.idioma as string))
         throw new BadRequestException('idioma: es o en');

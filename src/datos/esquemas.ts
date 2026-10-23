@@ -35,6 +35,8 @@ export class Usuario {
   @Prop({ default: '' }) nombre: string;
   @Prop({ default: 'USD', enum: MONEDAS }) moneda: string;
   @Prop({ default: 'es', enum: IDIOMAS }) idioma: string;
+  /** Moneda en la que se valúa el cajón de bananas (null: la de la cuenta). */
+  @Prop({ type: String, default: null }) monedaCajon: string | null;
   /** Premium vale hasta esta fecha (la renueva cada pago de la suscripción). */
   @Prop({ type: Date, default: null }) premiumHasta: Date | null;
   @Prop({ type: SchemaFactory.createForClass(UsosGratis), default: () => ({}) })

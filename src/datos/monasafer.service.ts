@@ -202,7 +202,10 @@ export class MonasaferService implements Sesiones {
   async actualizarPerfil(
     usuarioId: string,
     cambios: Partial<
-      Pick<Usuario, 'nombre' | 'moneda' | 'idioma' | 'saldo' | 'ingresoMensual'>
+      Pick<
+        Usuario,
+        'nombre' | 'moneda' | 'monedaCajon' | 'idioma' | 'saldo' | 'ingresoMensual'
+      >
     >,
   ) {
     const u = await this.usuarios.findByIdAndUpdate(
@@ -537,6 +540,7 @@ export class MonasaferService implements Sesiones {
       nombre: u.nombre,
       google: !!u.googleSub,
       moneda: u.moneda,
+      monedaCajon: u.monedaCajon ?? u.moneda,
       idioma: u.idioma ?? 'es',
       premium: {
         activo: !!u.premiumHasta && u.premiumHasta.getTime() > Date.now(),

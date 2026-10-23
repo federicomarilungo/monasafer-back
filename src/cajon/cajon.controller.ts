@@ -9,6 +9,9 @@ import {
   Post,
 } from '@nestjs/common';
 import { UsuarioId } from '../auth/usuario.guard';
+import { Public } from '../auth/public.decorator';
+import { ServiceUnavailableException } from '@nestjs/common';
+import { FuenteCotizaciones } from './cotizaciones';
 import * as v from '../datos/validar';
 import { CajonService } from './cajon.service';
 
@@ -27,7 +30,19 @@ function origen(x: unknown): 'mes' | 'acumulado' {
 
 @Controller('cajon')
 export class CajonController {
-  constructor(private readonly s: CajonService) {}
+  constructor(
+    private readonly s: CajonService,
+    private readonly cotizaciones: FuenteCotizaciones,
+  ) {}
+
+  /** Público a propósito: son cotizaciones de mercado (las usa también la demo). */
+  @Public()
+  @Get('cotizaciones')
+  async cotizacionesDelDia() {
+    const c = await this.cotizaciones.obtener();
+    if (!c) throw new ServiceUnavailableException('Sin cotizaciones por ahora');
+    return c;
+  }
 
   @Get()
   cajon(@UsuarioId() u: string) {

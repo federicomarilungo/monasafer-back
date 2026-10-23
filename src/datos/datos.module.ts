@@ -33,6 +33,7 @@ import {
 } from '../cajon/esquemas';
 import { CajonController } from '../cajon/cajon.controller';
 import { CajonService } from '../cajon/cajon.service';
+import { FuenteCotizaciones } from '../cajon/cotizaciones';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { CajonService } from '../cajon/cajon.service';
     MonasaferService,
     PremiumService,
     CajonService,
+    FuenteCotizaciones,
     MercadoPago,
     ClienteIa,
     { provide: Tokens, useFactory: () => Tokens.desdeEntorno() },
