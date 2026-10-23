@@ -595,6 +595,52 @@ describe('API de Monasafer', () => {
     await http.get('/historial?meses=0').set(auth).expect(400);
   });
 
+  it('comentarios de mejora: se guardan, avisan por email y se van con la cuenta', async () => {
+    const c = await cuenta('ideas@test.com');
+    await http.post('/comentarios').send({ texto: 'hola' }).expect(401);
+    await http.post('/comentarios').set(c.auth).send({ texto: '  ' }).expect(400);
+    await http
+      .post('/comentarios')
+      .set(c.auth)
+      .send({ tipo: 'queja', texto: 'x' })
+      .expect(400);
+    await http
+      .post('/comentarios')
+      .set(c.auth)
+      .send({ texto: 'x'.repeat(2001) })
+      .expect(400);
+    const antes = correos.length;
+    const r = await http
+      .post('/comentarios')
+      .set(c.auth)
+      .send({ tipo: 'idea', texto: 'Que Mona baile <b>más</b>', pantalla: 'inicio' })
+      .expect(201);
+    expect(r.body.ok).toBe(true);
+    expect(correos.length).toBe(antes + 1);
+    expect(correos.at(-1)!.para).toBe('admin@monasafer.com');
+    expect(correos.at(-1)!.html).toContain('Que Mona baile &#60;b&#62;más');
+    expect(correos.at(-1)!.html).toContain('ideas@test.com');
+    const modelo = app.get(getModelToken('Comentario'));
+    const guardado = await modelo.findById(r.body.id).lean();
+    expect(guardado).toMatchObject({
+      email: 'ideas@test.com',
+      nombre: 'Fede',
+      tipo: 'idea',
+      pantalla: 'inicio',
+      estado: 'nuevo',
+    });
+    // tope de 10 por día por persona
+    for (let i = 0; i < 9; i++)
+      await http.post('/comentarios').set(c.auth).send({ texto: `idea ${i}` }).expect(201);
+    await http.post('/comentarios').set(c.auth).send({ texto: 'otra' }).expect(429);
+    await http
+      .delete('/perfil')
+      .set(c.auth)
+      .send({ confirmacion: 'ideas@test.com' })
+      .expect(200);
+    expect(await modelo.countDocuments({ email: 'ideas@test.com' })).toBe(0);
+  });
+
   it('un usuario no puede ver ni tocar lo de otro', async () => {
     const a = await cuenta('a@test.com');
     const b = await cuenta('b@test.com');

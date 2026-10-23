@@ -34,6 +34,9 @@ import {
 import { CajonController } from '../cajon/cajon.controller';
 import { CajonService } from '../cajon/cajon.service';
 import { FuenteCotizaciones } from '../cajon/cotizaciones';
+import { Comentario, ComentarioSchema } from '../comentarios/esquemas';
+import { ComentariosController } from '../comentarios/comentarios.controller';
+import { ComentariosService } from '../comentarios/comentarios.service';
 
 @Module({
   imports: [
@@ -46,13 +49,20 @@ import { FuenteCotizaciones } from '../cajon/cotizaciones';
       { name: UsoIa.name, schema: UsoIaSchema },
       { name: Bolsillo.name, schema: BolsilloSchema },
       { name: MovimientoCajon.name, schema: MovimientoCajonSchema },
+      { name: Comentario.name, schema: ComentarioSchema },
     ]),
   ],
-  controllers: [MonasaferController, PremiumController, CajonController],
+  controllers: [
+    MonasaferController,
+    PremiumController,
+    CajonController,
+    ComentariosController,
+  ],
   providers: [
     MonasaferService,
     PremiumService,
     CajonService,
+    ComentariosService,
     FuenteCotizaciones,
     MercadoPago,
     ClienteIa,

@@ -3,7 +3,12 @@
  * y lo deja anotado en el log (sin el link, que da acceso a la cuenta).
  */
 export class Correo {
-  async enviar(para: string, asunto: string, html: string): Promise<boolean> {
+  async enviar(
+    para: string,
+    asunto: string,
+    html: string,
+    responderA?: string,
+  ): Promise<boolean> {
     const clave = process.env.RESEND_API_KEY;
     if (!clave) {
       console.warn(`[correo] sin RESEND_API_KEY: no se mandó "${asunto}"`);
@@ -22,6 +27,7 @@ export class Correo {
           to: [para],
           subject: asunto,
           html,
+          ...(responderA ? { reply_to: responderA } : {}),
         }),
         signal: AbortSignal.timeout(10000),
       });

@@ -21,6 +21,7 @@ const MIN = 60 * 1000;
 import { MonasaferService } from './monasafer.service';
 import { PremiumService } from '../premium/premium.service';
 import { CajonService } from '../cajon/cajon.service';
+import { ComentariosService } from '../comentarios/comentarios.service';
 import { mesDe } from '../motor';
 import * as v from './validar';
 import { IDIOMAS, MONEDAS } from './esquemas';
@@ -32,6 +33,7 @@ export class MonasaferController {
     private readonly s: MonasaferService,
     private readonly premium: PremiumService,
     private readonly cajon: CajonService,
+    private readonly comentarios: ComentariosService,
   ) {}
 
   private readonly limite = new Limitador();
@@ -105,6 +107,7 @@ export class MonasaferController {
       throw new BadRequestException('Escribí tu email para confirmar');
     await this.premium.borrarDatos(u);
     await this.cajon.borrarDatos(u);
+    await this.comentarios.borrarDatos(u);
     return this.s.borrarCuenta(u, confirmacion);
   }
 
