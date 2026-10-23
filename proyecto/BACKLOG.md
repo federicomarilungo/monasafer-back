@@ -52,7 +52,7 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | C5 | Reservas en el front (frasco que se vacía, cargar usos) | P0 | hecha | Claude | C2, B5 |
 | C6 | Login y onboarding (saldo, ingreso, primeros fijos) con el mono | P0 | hecha | Claude | B2, C2 |
 | C7 | Mobile primero y PWA instalable | P1 | hecha | Claude | C2 |
-| C8 | Responsive punta a punta: aprovechar el espacio en PC y tablet (home en columnas, hojas más anchas, entrada, onboarding, cajón, chat y métricas) sin romper celular | P1 | en curso | Claude | C7 |
+| C8 | Responsive punta a punta: aprovechar el espacio en PC y tablet (home en columnas, hojas más anchas, entrada, onboarding, cajón, chat y métricas) sin romper celular | P1 | hecha | Claude | C7 |
 | D1 | Estados y animaciones del mono según el balance | P1 | hecha | Claude | C1, C2 |
 | D2 | Gráfico de ahorro proyectado a 12 meses | P1 | lista | Claude | C4 |
 | D3 | Logros y rachas de ahorro | P2 | lista | Claude | D1 |
