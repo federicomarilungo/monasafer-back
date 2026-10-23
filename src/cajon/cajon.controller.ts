@@ -87,8 +87,18 @@ export class CajonController {
     const cambios: {
       nombre?: string;
       emoji?: string;
+      unidad?: string;
+      decimales?: number;
       cotizacion?: { moneda: string; valor: number } | null;
     } = {};
+    if (b.unidad !== undefined)
+      cambios.unidad = v.texto(b.unidad, 'unidad', 10);
+    if (b.decimales !== undefined) {
+      const d = Number(b.decimales);
+      if (!Number.isInteger(d) || d < 0 || d > 8)
+        throw new BadRequestException('decimales: 0 a 8');
+      cambios.decimales = d;
+    }
     if (b.cotizacion !== undefined)
       cambios.cotizacion = cotizacion(b.cotizacion);
     if (b.nombre !== undefined)

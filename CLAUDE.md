@@ -68,7 +68,8 @@ auditoría: `ahorro` (sale del saldo), `retiro` (vuelve al saldo), `gasto` / `in
 (se editó el total, con detalle) y `traspaso` (dos movimientos con el mismo `grupo`).
 Un bolsillo puede tener `cotizacion {moneda, valor}` (centavos por 1 unidad, puesta a mano):
 manda sobre la de mercado al valuar el cajón (lo que no cotiza, o el valor propio de Fede).
-- `GET /cajon`, `POST/PATCH/DELETE /cajon/bolsillos[/:id]` (solo se borra vacío).
+- `GET /cajon`, `POST/PATCH/DELETE /cajon/bolsillos[/:id]` (solo se borra vacío; PATCH cambia
+  nombre, emoji, unidad y `cotizacion`, y `decimales` solo con el bolsillo vacío).
 - `POST /cajon/ahorrar {monto, origen: mes|acumulado, bolsilloId?, cantidad?}`: sin
   bolsillo va a "Sin asignar" (uno por usuario, en su moneda).
 - `POST /cajon/bolsillos/:id/ajustar {cantidad, detalle}`, `.../retirar {cantidad, monto}`,

@@ -94,8 +94,30 @@ export class CajonService {
   async editarBolsillo(
     usuarioId: string,
     bolsilloId: string,
-    cambios: Partial<Pick<NuevoBolsillo, 'nombre' | 'emoji' | 'cotizacion'>>,
+    cambios: Partial<
+      Pick<
+        NuevoBolsillo,
+        'nombre' | 'emoji' | 'unidad' | 'decimales' | 'cotizacion'
+      >
+    >,
   ) {
+    // Cambiar la unidad es renombrarla (lo guardado sigue igual). Los decimales cambian
+    // cómo se leen las cantidades guardadas, así que solo se tocan con el bolsillo vacío.
+    if (cambios.unidad !== undefined || cambios.decimales !== undefined) {
+      const actual = await this.bolsilloDe(usuarioId, bolsilloId);
+      if (actual.generico)
+        throw new BadRequestException(
+          '"Sin asignar" va en la moneda de la cuenta',
+        );
+      if (
+        cambios.decimales !== undefined &&
+        cambios.decimales !== actual.decimales &&
+        (await this.cantidadDe(actual._id)) !== 0
+      )
+        throw new ConflictException(
+          'Para cambiar los decimales vaciá el bolsillo',
+        );
+    }
     const b = await this.bolsillos
       .findOneAndUpdate(
         { _id: oid(bolsilloId), usuarioId: oid(usuarioId), archivado: false },

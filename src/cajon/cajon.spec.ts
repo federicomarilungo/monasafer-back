@@ -377,4 +377,53 @@ describe('Cajón de bananas', () => {
       .send({ cotizacion: null })
       .expect(200);
   });
+
+  it('al bolsillo se le cambia nombre y unidad; los decimales, solo vacío', async () => {
+    const b = (
+      await http
+        .post('/cajon/bolsillos')
+        .set(auth)
+        .send({ nombre: 'Eth', unidad: 'ETH', decimales: 8 })
+        .expect(201)
+    ).body;
+    // Vacío: se puede pasar a USDT con 2 decimales.
+    await http
+      .patch(`/cajon/bolsillos/${b.id}`)
+      .set(auth)
+      .send({ nombre: 'Tether', unidad: 'USDT', decimales: 2 })
+      .expect(200);
+    await http
+      .post('/cajon/ahorrar')
+      .set(auth)
+      .send({
+        monto: 1000,
+        origen: 'acumulado',
+        bolsilloId: b.id,
+        cantidad: 1000,
+      })
+      .expect(201);
+    // Con plata: renombrar la unidad sí, cambiar decimales no.
+    const r = (
+      await http
+        .patch(`/cajon/bolsillos/${b.id}`)
+        .set(auth)
+        .send({ unidad: 'USDC', decimales: 2 })
+        .expect(200)
+    ).body;
+    expect(r).toMatchObject({ nombre: 'Tether', unidad: 'USDC', decimales: 2 });
+    await http
+      .patch(`/cajon/bolsillos/${b.id}`)
+      .set(auth)
+      .send({ decimales: 8 })
+      .expect(409);
+    const sin = (
+      await http.get('/cajon').set(auth).expect(200)
+    ).body.bolsillos.find((x: { generico: boolean }) => x.generico);
+    if (sin)
+      await http
+        .patch(`/cajon/bolsillos/${sin.id}`)
+        .set(auth)
+        .send({ unidad: 'BTC' })
+        .expect(400);
+  });
 });
