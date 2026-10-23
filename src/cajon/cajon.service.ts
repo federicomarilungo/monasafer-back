@@ -44,7 +44,10 @@ export class CajonService {
   async cajon(usuarioId: string) {
     const id = oid(usuarioId);
     const [bolsillos, cantidades, movimientos] = await Promise.all([
-      this.bolsillos.find({ usuarioId: id }).sort({ createdAt: 1 }).lean(),
+      this.bolsillos
+        .find({ usuarioId: id })
+        .sort({ orden: 1, createdAt: 1 })
+        .lean(),
       this.cantidades(id),
       this.movimientos
         .find({ usuarioId: id })
@@ -90,7 +93,11 @@ export class CajonService {
       })) >= 30
     )
       throw new BadRequestException('Hasta 30 bolsillos');
-    const creado = await this.bolsillos.create({ ...b, usuarioId: id });
+    const creado = await this.bolsillos.create({
+      ...b,
+      usuarioId: id,
+      orden: await this.ordenNuevo(id),
+    });
     return { ...this.bolsilloPublico(creado.toObject()), cantidad: 0 };
   }
 
@@ -130,6 +137,33 @@ export class CajonService {
       .lean();
     if (!b) throw new NotFoundException();
     return this.bolsilloPublico(b);
+  }
+
+  /** Pone los bolsillos en el orden de `ids` (los que falten quedan al final). */
+  async ordenar(usuarioId: string, ids: string[]) {
+    const id = oid(usuarioId);
+    await this.bolsillos.bulkWrite(
+      ids.map((b, i) => ({
+        updateOne: {
+          filter: { _id: oid(b), usuarioId: id },
+          update: { $set: { orden: i } },
+        },
+      })),
+    );
+    const resto = await this.bolsillos
+      .find({ usuarioId: id, _id: { $nin: ids.map(oid) } })
+      .sort({ orden: 1, createdAt: 1 })
+      .lean();
+    if (resto.length)
+      await this.bolsillos.bulkWrite(
+        resto.map((b, i) => ({
+          updateOne: {
+            filter: { _id: b._id },
+            update: { $set: { orden: ids.length + i } },
+          },
+        })),
+      );
+    return this.cajon(usuarioId);
   }
 
   /** Solo se borra un bolsillo vacío: lo que tiene se gasta, se retira o se pasa a otro. */
@@ -391,11 +425,21 @@ export class CajonService {
         unidad: u?.moneda ?? 'USD',
         decimales: 2,
         generico: true,
+        orden: await this.ordenNuevo(usuarioId),
       });
     } catch {
       // Dos ahorros a la vez: el otro ya lo creó.
       return (await this.bolsillos.findOne({ usuarioId, generico: true }))!;
     }
+  }
+
+  /** Los nuevos van al final: después de reordenar, los órdenes van de 0 a n-1. */
+  private async ordenNuevo(usuarioId: Types.ObjectId) {
+    const ultimo = await this.bolsillos
+      .findOne({ usuarioId })
+      .sort({ orden: -1 })
+      .lean();
+    return (ultimo?.orden ?? 0) + 1;
   }
 
   private async bolsilloDe(usuarioId: string, bolsilloId: string) {

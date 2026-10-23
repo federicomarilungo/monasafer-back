@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
 } from '@nestjs/common';
 import { UsuarioId } from '../auth/usuario.guard';
 import { Public } from '../auth/public.decorator';
@@ -113,6 +114,18 @@ export class CajonController {
     if (b.emoji !== undefined)
       cambios.emoji = v.texto(b.emoji, 'emoji', 16, false);
     return this.s.editarBolsillo(u, id, cambios);
+  }
+
+  @Put('orden')
+  ordenar(@UsuarioId() u: string, @Body() body: unknown) {
+    const ids = v.objeto(body).ids;
+    if (
+      !Array.isArray(ids) ||
+      ids.length > 100 ||
+      ids.some((x) => typeof x !== 'string')
+    )
+      throw new BadRequestException('ids: lista de bolsillos');
+    return this.s.ordenar(u, ids as string[]);
   }
 
   @Delete('bolsillos/:id')

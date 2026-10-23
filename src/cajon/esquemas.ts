@@ -26,6 +26,8 @@ export class Bolsillo {
   /** "Sin asignar": adonde va lo que se ahorra sin elegir dónde (Omitir). Uno por usuario. */
   @Prop({ default: false }) generico: boolean;
   @Prop({ default: false }) archivado: boolean;
+  /** Lugar en el cajón (lo elige la persona); empata por fecha de creación. */
+  @Prop({ default: 0 }) orden: number;
 }
 export const BolsilloSchema = SchemaFactory.createForClass(Bolsillo);
 BolsilloSchema.index(

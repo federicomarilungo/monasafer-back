@@ -467,4 +467,34 @@ describe('Cajón de bananas', () => {
     await http.delete(`/cajon/movimientos/${m.id}`).set(auth).expect(200);
     await http.delete(`/cajon/bolsillos/${b.id}`).set(auth).expect(200);
   });
+
+  it('los bolsillos se ordenan a gusto y los nuevos van al final', async () => {
+    const crear = async (nombre: string) =>
+      (
+        await http
+          .post('/cajon/bolsillos')
+          .set(auth)
+          .send({ nombre, unidad: 'USD' })
+          .expect(201)
+      ).body.id as string;
+    const a = await crear('A');
+    const b = await crear('B');
+    const c = await crear('C');
+    const nombres = (r: { bolsillos: { nombre: string }[] }) =>
+      r.bolsillos.map((x) => x.nombre).filter((n) => 'ABCD'.includes(n));
+    const r = (
+      await http
+        .put('/cajon/orden')
+        .set(auth)
+        .send({ ids: [c, a] })
+        .expect(200)
+    ).body;
+    expect(nombres(r)).toEqual(['C', 'A', 'B']);
+    await crear('D');
+    const g = (await http.get('/cajon').set(auth).expect(200)).body;
+    expect(nombres(g)).toEqual(['C', 'A', 'B', 'D']);
+    await http.put('/cajon/orden').set(auth).send({ ids: 'x' }).expect(400);
+    for (const id of [a, b, c])
+      await http.delete(`/cajon/bolsillos/${id}`).set(auth).expect(200);
+  });
 });
