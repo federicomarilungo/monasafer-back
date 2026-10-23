@@ -104,4 +104,24 @@ describe('partirBalance', () => {
       total: oct.balance + USD(200),
     });
   });
+
+  it('si el saldo es menos de lo que da el mes, todo es del mes y el acumulado queda en 0', () => {
+    // Caso real (Fede, 23/10/2026): cobró 5.550.000, no cargó gastos y tiene 495.030.
+    const sinCargar: Datos = {
+      perfil: {
+        saldo: USD(495030),
+        ingresoMensual: { monto: USD(5550000), diaCobro: 1 },
+        ingresoCobradoMes: '2026-10',
+      },
+      gastos: [],
+      estados: [],
+      usos: [],
+    };
+    const [oct] = proyectar(sinCargar, hoy, '2026-10');
+    expect(partirBalance(sinCargar, oct)).toEqual({
+      delMes: USD(495030),
+      acumulado: 0,
+      total: USD(495030),
+    });
+  });
 });
