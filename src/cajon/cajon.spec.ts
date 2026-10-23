@@ -287,7 +287,7 @@ describe('Cajón de bananas', () => {
         'api.gold-api.com': { price: 4000 },
         'dolarapi.com': { venta: 1550 },
         'open.er-api.com': { rates: { ARS: 1490, EUR: 0.91 } },
-        'api.coingecko.com': { bitcoin: { usd: 80000 } },
+        'api.coingecko.com': { bitcoin: { usd: 80000 }, tether: { usd: 1 } },
       };
       const host = Object.keys(respuestas).find((h) =>
         String(url).includes(h),
@@ -316,7 +316,12 @@ describe('Cajón de bananas', () => {
       fuente.cache = null;
       coinbaseCae = true;
       const r2 = (await http.get('/cajon/cotizaciones').expect(200)).body;
-      expect(r2.porUsd).toMatchObject({ EUR: 0.91, BTC: 1 / 80000, ARS: 1550 });
+      expect(r2.porUsd).toMatchObject({
+        EUR: 0.91,
+        BTC: 1 / 80000,
+        USDT: 1,
+        ARS: 1550,
+      });
     } finally {
       fetchFalso.mockRestore();
     }

@@ -3,7 +3,8 @@ import { Injectable } from '@nestjs/common';
 // Cotizaciones del día para valuar el cajón en una moneda base (pedido de Fede, 23/10/2026).
 // Todo se expresa como "cuántas unidades de X compra 1 USD". Son tipos de cambio, no plata:
 // el front redondea a centavos al convertir. Fuentes gratis y sin clave:
-// - Monedas y cripto: Coinbase; si falla, open.er-api (monedas) y CoinGecko (BTC, ETH).
+// - Monedas y cripto: Coinbase; si falla, open.er-api (monedas) y CoinGecko (las cripto
+//   que ofrece el front).
 // - Oro (XAU, onza troy): gold-api.com; si falla, CoinGecko (PAX Gold, 1 onza).
 // - ARS: dólar MEP (dolarapi.com, venta), que es el que usa la gente para ahorrar.
 // Se cachea una hora; si todo falla se devuelve la última buena.
@@ -16,6 +17,15 @@ export interface Cotizaciones {
 }
 
 const UNA_HORA = 60 * 60 * 1000;
+
+/** Las cripto que ofrece el front, por id de CoinGecko (Coinbase ya trae cientos). */
+const CRIPTO_RESPALDO: Record<string, string> = {
+  bitcoin: 'BTC',
+  ethereum: 'ETH',
+  tether: 'USDT',
+  'usd-coin': 'USDC',
+  solana: 'SOL',
+};
 
 async function json(url: string): Promise<unknown> {
   const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
@@ -73,21 +83,20 @@ export class FuenteCotizaciones {
       return r.data.rates;
     } catch (e) {
       console.error('[cotizaciones] Coinbase falló, uso los respaldos', e);
-      const [fiat, cripto] = await Promise.all([
+      const [fiat, precios] = await Promise.all([
         json('https://open.er-api.com/v6/latest/USD') as Promise<{
           rates: Record<string, unknown>;
         }>,
         json(
-          'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd',
+          `https://api.coingecko.com/api/v3/simple/price?ids=${Object.keys(CRIPTO_RESPALDO).join(',')}&vs_currencies=usd`,
         ).catch(() => ({})) as Promise<Record<string, { usd?: number }>>,
       ]);
-      const btc = positivo(cripto.bitcoin?.usd);
-      const eth = positivo(cripto.ethereum?.usd);
-      return {
-        ...fiat.rates,
-        ...(btc ? { BTC: 1 / btc } : {}),
-        ...(eth ? { ETH: 1 / eth } : {}),
-      };
+      const cripto: Record<string, number> = {};
+      for (const [id, codigo] of Object.entries(CRIPTO_RESPALDO)) {
+        const usd = positivo(precios[id]?.usd);
+        if (usd) cripto[codigo] = 1 / usd;
+      }
+      return { ...fiat.rates, ...cripto };
     }
   }
 
