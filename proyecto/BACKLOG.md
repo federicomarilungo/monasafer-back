@@ -52,6 +52,7 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | C5 | Reservas en el front (frasco que se vacía, cargar usos) | P0 | hecha | Claude | C2, B5 |
 | C6 | Login y onboarding (saldo, ingreso, primeros fijos) con el mono | P0 | hecha | Claude | B2, C2 |
 | C7 | Mobile primero y PWA instalable | P1 | hecha | Claude | C2 |
+| C8 | Responsive punta a punta: aprovechar el espacio en PC y tablet (home en columnas, hojas más anchas, entrada, onboarding, cajón, chat y métricas) sin romper celular | P1 | en curso | Claude | C7 |
 | D1 | Estados y animaciones del mono según el balance | P1 | hecha | Claude | C1, C2 |
 | D2 | Gráfico de ahorro proyectado a 12 meses | P1 | lista | Claude | C4 |
 | D3 | Logros y rachas de ahorro | P2 | lista | Claude | D1 |
@@ -131,6 +132,18 @@ general, sonidos satisfactorios estilo Tricky Towers al realizar acciones."
   cobrar ingreso, cambiar de mes, error. Botón 🔊/🔇 que se recuerda por navegador.
 
 **M5 · Hoja de gasto** — Hecha el 20/10/2026 a pedido de Fede: duración y reserva son ejes independientes; "Varios meses" con − N + (sugerencia 3) y el último mes en palabras, sin calendario; íconos en grilla con scroll vertical. Se traduce al modelo de siempre (puntual/fijo/reserva + mesFin + recurrente).
+
+**C8 · Responsive punta a punta (pedido de Fede, 23/10/2026)** — "Revisar responsive punta
+a punta, teniendo en cuenta que usuarios de PC tienen más espacio y aprovechar eso". La app
+nació para celular (480 px) y en PC quedaba una columna angosta en el medio. Criterios:
+- Celular (360-480 px, también con letra agrandada) queda igual: sin desborde horizontal.
+- Tablet y PC: la home usa el ancho (balance y resumen a un lado, gastos al otro), los
+  botones flotantes acompañan el contenido, las hojas que lo necesitan (chat, cajón) son
+  más anchas y altas, entrada y onboarding no quedan como una tira.
+- Mouse: estados de hover en lo que se toca.
+- Métricas: la rehace otro hilo como pantalla completa (separada en gastos y ahorros); al
+  terminar, revisar que en PC aproveche el ancho.
+Se verifica en monasafer.com con capturas a 390, 768, 1280 y 1920 px.
 
 **C1 · Propuestas visuales** — 2 o 3 variantes del mono (SVG) y de la pantalla del mes,
 publicadas para que Fede elija. Estados del mono: feliz (ahorro), nervioso (cerca de
