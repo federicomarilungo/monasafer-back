@@ -75,7 +75,8 @@ manda sobre la de mercado al valuar el cajón (lo que no cotiza, o el valor prop
 - `POST /cajon/bolsillos/:id/ajustar {cantidad, detalle}`, `.../retirar {cantidad, monto}`,
   `POST /cajon/traspasar {desde, hacia, cantidad, cantidadEntra?}`.
 - `PATCH/DELETE /cajon/movimientos/:id`: corrige o borra y ajusta el saldo; nunca deja un
-  bolsillo en negativo.
+  bolsillo en negativo, salvo los ajustes a mano: `ajustar` acepta un total negativo (plata
+  de otro que tenés guardada y resta del total del cajón).
 - `GET /cajon/cotizaciones` (público a propósito): `{base:'USD', porUsd, fecha}`, unidades
   de cada código por 1 USD. Coinbase (respaldo open.er-api + CoinGecko), oro de gold-api
   (respaldo CoinGecko PAX Gold, onza troy) y ARS al dólar MEP de dolarapi. Caché de 1 h

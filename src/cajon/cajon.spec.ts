@@ -426,4 +426,45 @@ describe('Cajón de bananas', () => {
         .send({ unidad: 'BTC' })
         .expect(400);
   });
+
+  it('un bolsillo puede quedar en negativo a mano (plata de otro que resta)', async () => {
+    const b = (
+      await http
+        .post('/cajon/bolsillos')
+        .set(auth)
+        .send({ nombre: 'Plata de mamá', unidad: 'USD' })
+        .expect(201)
+    ).body;
+    const m = (
+      await http
+        .post(`/cajon/bolsillos/${b.id}/ajustar`)
+        .set(auth)
+        .send({ cantidad: -USD(200), detalle: 'Me la guarda' })
+        .expect(201)
+    ).body;
+    expect(m).toMatchObject({ tipo: 'gasto', cantidad: -USD(200) });
+    let c = (await http.get('/cajon').set(auth).expect(200)).body;
+    expect(
+      c.bolsillos.find((x: { id: string }) => x.id === b.id).cantidad,
+    ).toBe(-USD(200));
+    // No se puede sacar de ahí ni borrarlo con deuda.
+    await http
+      .post(`/cajon/bolsillos/${b.id}/retirar`)
+      .set(auth)
+      .send({ cantidad: USD(1), monto: USD(1) })
+      .expect(409);
+    await http.delete(`/cajon/bolsillos/${b.id}`).set(auth).expect(409);
+    // El ajuste se corrige y se borra como cualquier otro.
+    await http
+      .patch(`/cajon/movimientos/${m.id}`)
+      .set(auth)
+      .send({ cantidad: USD(150) })
+      .expect(200);
+    c = (await http.get('/cajon').set(auth).expect(200)).body;
+    expect(
+      c.bolsillos.find((x: { id: string }) => x.id === b.id).cantidad,
+    ).toBe(-USD(150));
+    await http.delete(`/cajon/movimientos/${m.id}`).set(auth).expect(200);
+    await http.delete(`/cajon/bolsillos/${b.id}`).set(auth).expect(200);
+  });
 });

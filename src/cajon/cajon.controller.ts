@@ -23,6 +23,13 @@ function cantidad(x: unknown, campo = 'cantidad'): number {
   return x;
 }
 
+/** El total puesto a mano puede ser negativo: plata de otro que tenés guardada y resta. */
+function total(x: unknown): number {
+  if (typeof x !== 'number' || !Number.isInteger(x) || Math.abs(x) > 1e15)
+    throw new BadRequestException('cantidad tiene que ser un entero');
+  return x;
+}
+
 /** `{moneda, valor}`: cuánto vale 1 unidad del bolsillo, en centavos de esa moneda. */
 function cotizacion(x: unknown): { moneda: string; valor: number } | null {
   if (x === null) return null;
@@ -141,7 +148,7 @@ export class CajonController {
     return this.s.ajustar(
       u,
       id,
-      cantidad(b.cantidad),
+      total(b.cantidad),
       v.texto(b.detalle, 'detalle', 120, false),
     );
   }

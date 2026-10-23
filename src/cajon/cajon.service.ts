@@ -16,6 +16,9 @@ function oid(id: string): Types.ObjectId {
   return new Types.ObjectId(id);
 }
 
+/** Los totales editados a mano (`ajustar`): pueden dejar el bolsillo en negativo. */
+const esAjuste = (tipo: string) => tipo === 'gasto' || tipo === 'ingreso';
+
 export interface NuevoBolsillo {
   nombre: string;
   emoji: string;
@@ -187,6 +190,7 @@ export class CajonService {
   /**
    * Edita el total de un bolsillo. Si baja, la diferencia es un gasto del ahorro (con su
    * detalle: "viaje"); si sube, un ingreso que no vino del saldo. El saldo no cambia.
+   * Puede quedar en negativo: plata de otro que tenés guardada y resta del total (Fede).
    */
   async ajustar(
     usuarioId: string,
@@ -310,7 +314,8 @@ export class CajonService {
       cambios.deltaSaldo = m.tipo === 'ahorro' ? -c.monto : c.monto;
       delta = cambios.deltaSaldo - m.deltaSaldo;
     }
-    if (cambios.cantidad !== undefined) {
+    // Un ajuste a mano puede dejarlo en negativo (como en `ajustar`); lo demás, no.
+    if (cambios.cantidad !== undefined && !esAjuste(m.tipo)) {
       const quedaria =
         (await this.cantidadDe(m.bolsilloId)) - m.cantidad + cambios.cantidad;
       if (quedaria < 0)
@@ -337,7 +342,11 @@ export class CajonService {
           .lean()
       : [m];
     for (const x of todos)
-      if (x.cantidad > 0 && (await this.cantidadDe(x.bolsilloId)) < x.cantidad)
+      if (
+        x.cantidad > 0 &&
+        !esAjuste(x.tipo) &&
+        (await this.cantidadDe(x.bolsilloId)) < x.cantidad
+      )
         throw new ConflictException(
           'Ese ahorro ya se usó: el bolsillo quedaría en negativo',
         );
