@@ -13,6 +13,7 @@ import { Public } from '../auth/public.decorator';
 import { ServiceUnavailableException } from '@nestjs/common';
 import { FuenteCotizaciones } from './cotizaciones';
 import * as v from '../datos/validar';
+import { MONEDAS } from '../datos/esquemas';
 import { CajonService } from './cajon.service';
 
 /** Entero de unidades mínimas de un bolsillo (230 USD = 23000; 0,0031 BTC = 310000). */
@@ -20,6 +21,18 @@ function cantidad(x: unknown, campo = 'cantidad'): number {
   if (typeof x !== 'number' || !Number.isInteger(x) || x < 0 || x > 1e15)
     throw new BadRequestException(`${campo} tiene que ser un entero >= 0`);
   return x;
+}
+
+/** `{moneda, valor}`: cuánto vale 1 unidad del bolsillo, en centavos de esa moneda. */
+function cotizacion(x: unknown): { moneda: string; valor: number } | null {
+  if (x === null) return null;
+  const c = v.objeto(x);
+  if (!MONEDAS.includes(c.moneda as string))
+    throw new BadRequestException(`cotizacion.moneda: ${MONEDAS.join(', ')}`);
+  return {
+    moneda: c.moneda as string,
+    valor: v.monto(c.valor, 'cotizacion.valor'),
+  };
 }
 
 function origen(x: unknown): 'mes' | 'acumulado' {
@@ -60,6 +73,7 @@ export class CajonController {
       emoji: v.texto(b.emoji, 'emoji', 16, false),
       unidad: v.texto(b.unidad, 'unidad', 10),
       decimales,
+      cotizacion: b.cotizacion === undefined ? null : cotizacion(b.cotizacion),
     });
   }
 
@@ -70,7 +84,13 @@ export class CajonController {
     @Body() body: unknown,
   ) {
     const b = v.objeto(body);
-    const cambios: { nombre?: string; emoji?: string } = {};
+    const cambios: {
+      nombre?: string;
+      emoji?: string;
+      cotizacion?: { moneda: string; valor: number } | null;
+    } = {};
+    if (b.cotizacion !== undefined)
+      cambios.cotizacion = cotizacion(b.cotizacion);
     if (b.nombre !== undefined)
       cambios.nombre = v.texto(b.nombre, 'nombre', 40);
     if (b.emoji !== undefined)

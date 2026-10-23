@@ -66,6 +66,8 @@ Sin `MONGO_URI` la API levanta solo con `GET /ping`, `GET /salud` y `POST /admin
 cantidad es la suma de `movimientos_cajon` (entero de unidades mínimas), que son la
 auditoría: `ahorro` (sale del saldo), `retiro` (vuelve al saldo), `gasto` / `ingreso`
 (se editó el total, con detalle) y `traspaso` (dos movimientos con el mismo `grupo`).
+Un bolsillo puede tener `cotizacion {moneda, valor}` (centavos por 1 unidad, puesta a mano):
+manda sobre la de mercado al valuar el cajón (lo que no cotiza, o el valor propio de Fede).
 - `GET /cajon`, `POST/PATCH/DELETE /cajon/bolsillos[/:id]` (solo se borra vacío).
 - `POST /cajon/ahorrar {monto, origen: mes|acumulado, bolsilloId?, cantidad?}`: sin
   bolsillo va a "Sin asignar" (uno por usuario, en su moneda).

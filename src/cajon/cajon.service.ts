@@ -21,6 +21,7 @@ export interface NuevoBolsillo {
   emoji: string;
   unidad: string;
   decimales: number;
+  cotizacion?: { moneda: string; valor: number } | null;
 }
 
 @Injectable()
@@ -57,6 +58,7 @@ export class CajonService {
           emoji: b.emoji,
           unidad: b.unidad,
           decimales: b.decimales,
+          cotizacion: b.cotizacion ?? null,
           generico: b.generico,
           cantidad: cantidades.get(String(b._id)) ?? 0,
         })),
@@ -92,7 +94,7 @@ export class CajonService {
   async editarBolsillo(
     usuarioId: string,
     bolsilloId: string,
-    cambios: Partial<Pick<NuevoBolsillo, 'nombre' | 'emoji'>>,
+    cambios: Partial<Pick<NuevoBolsillo, 'nombre' | 'emoji' | 'cotizacion'>>,
   ) {
     const b = await this.bolsillos
       .findOneAndUpdate(
@@ -401,6 +403,7 @@ export class CajonService {
       emoji: b.emoji,
       unidad: b.unidad,
       decimales: b.decimales,
+      cotizacion: b.cotizacion ?? null,
       generico: b.generico,
     };
   }

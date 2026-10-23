@@ -14,6 +14,15 @@ export class Bolsillo {
   @Prop({ default: '' }) emoji: string;
   @Prop({ required: true, trim: true }) unidad: string;
   @Prop({ required: true, min: 0, max: 8 }) decimales: number;
+  /**
+   * Cuánto vale 1 unidad, puesto a mano (centavos de `moneda`). Para lo que no tiene
+   * cotización de mercado o si la persona prefiere su propio valor: manda sobre el mercado.
+   */
+  @Prop({
+    type: { moneda: String, valor: Number, _id: false },
+    default: null,
+  })
+  cotizacion: { moneda: string; valor: number } | null;
   /** "Sin asignar": adonde va lo que se ahorra sin elegir dónde (Omitir). Uno por usuario. */
   @Prop({ default: false }) generico: boolean;
   @Prop({ default: false }) archivado: boolean;

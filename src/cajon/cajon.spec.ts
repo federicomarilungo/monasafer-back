@@ -338,4 +338,38 @@ describe('Cajón de bananas', () => {
       .expect(200);
     expect(p.body).toMatchObject({ moneda: 'ARS', monedaCajon: 'USD' });
   });
+
+  it('un bolsillo puede tener su propio valor por unidad (para lo que no cotiza)', async () => {
+    const b = (
+      await http
+        .post('/cajon/bolsillos')
+        .set(auth)
+        .send({
+          nombre: 'Figuritas',
+          unidad: 'fig',
+          cotizacion: { moneda: 'ARS', valor: USD(500) },
+        })
+        .expect(201)
+    ).body;
+    expect(b.cotizacion).toEqual({ moneda: 'ARS', valor: USD(500) });
+    await http
+      .patch(`/cajon/bolsillos/${b.id}`)
+      .set(auth)
+      .send({ cotizacion: { moneda: 'XXX', valor: 1 } })
+      .expect(400);
+    await http
+      .patch(`/cajon/bolsillos/${b.id}`)
+      .set(auth)
+      .send({ cotizacion: { moneda: 'USD', valor: 40 } })
+      .expect(200);
+    const c = (await http.get('/cajon').set(auth).expect(200)).body;
+    expect(
+      c.bolsillos.find((x: { id: string }) => x.id === b.id).cotizacion,
+    ).toEqual({ moneda: 'USD', valor: 40 });
+    await http
+      .patch(`/cajon/bolsillos/${b.id}`)
+      .set(auth)
+      .send({ cotizacion: null })
+      .expect(200);
+  });
 });
