@@ -110,6 +110,24 @@ describe('API de Monasafer', () => {
     expect(s.body.base).toBe(true);
   });
 
+  it('pasar una reserva a "cargo cada uso" rige desde este mes', async () => {
+    const { auth } = await cuenta('reserva-manual@test.com');
+    const nafta = (
+      await http
+        .post('/gastos')
+        .set(auth)
+        .send({ nombre: 'Nafta', monto: USD(100), tipo: 'reserva', mesInicio: '2026-08', recurrente: true })
+        .expect(201)
+    ).body;
+    const manual = await http.patch(`/gastos/${nafta.id}`).set(auth).send({ modoReserva: 'manual' }).expect(200);
+    expect(manual.body).toMatchObject({ modoReserva: 'manual', manualDesde: '2026-10' });
+    // Sin usos en agosto y septiembre: siguen contando enteros.
+    const h = (await http.get('/historial?meses=2').set(auth).expect(200)).body;
+    expect(h.map((m: { total: number }) => m.total)).toEqual([USD(100), USD(100)]);
+    const vuelta = await http.patch(`/gastos/${nafta.id}`).set(auth).send({ modoReserva: 'proporcional' }).expect(200);
+    expect(vuelta.body.manualDesde).toBeUndefined();
+  });
+
   it('registro, login y validaciones', async () => {
     await cuenta('login@test.com');
     await http

@@ -83,6 +83,16 @@ describe('historial', () => {
     expect(historial(datos, '2026-07', '2026-08').map((m) => m.total)).toEqual([USD(300), USD(200)]);
   });
 
+  it('una reserva que pasó a manual sigue consumida entera antes de manualDesde', () => {
+    const nafta: GastoHistorial = { ...super_, id: 'n', manualDesde: '2026-09' };
+    const h = historial(
+      { gastos: [nafta], estados: [], usos: [{ gastoId: 'n', mes: '2026-09', monto: USD(70) }] },
+      '2026-08',
+      '2026-10',
+    );
+    expect(h.map((m) => m.total)).toEqual([USD(300), USD(70), 0]);
+  });
+
   it('mismos números que el front (src/motor.test.js)', () => {
     const gym: GastoHistorial = { ...alquiler, id: 'g', nombre: 'Gimnasio', monto: USD(30), mesArchivo: '2026-08' };
     const h = historial(

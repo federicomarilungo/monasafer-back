@@ -16,6 +16,11 @@ export interface Gasto {
   mesFin?: Mes | null;
   /** Solo reservas. Default: proporcional. */
   modoReserva?: ModoReserva;
+  /**
+   * Mes desde el que una reserva es manual, si antes bajaba sola: los meses anteriores
+   * siguen contando como proporcionales (consumida entera) en el historial.
+   */
+  manualDesde?: Mes | null;
   /** Las reservas se repiten todos los meses como un fijo si es true. */
   recurrente?: boolean;
   /**

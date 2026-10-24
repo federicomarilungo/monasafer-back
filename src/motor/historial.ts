@@ -29,7 +29,8 @@ export interface MesHistorial {
  * así que solo se reconstruyen los gastos:
  * - cada gasto vigente en el mes, con el monto de ese mes si se cambió;
  * - una reserva manual cuenta lo usado (lo que no se usó quedó ahorrado), salvo que se
- *   haya marcado pagada; una proporcional se consumió entera;
+ *   haya marcado pagada; una proporcional se consumió entera (también los meses antes de
+ *   `manualDesde`, si pasó de proporcional a manual);
  * - un gasto borrado cuenta hasta el mes anterior al borrado y, en el mes en que se
  *   borró, solo si se pagó o se usó (si no, probablemente se cargó por error).
  */
@@ -51,7 +52,10 @@ export function historial(
         .reduce((s, u) => s + u.monto, 0);
       if (g.mesArchivo === mes && !pagado && !usado) continue;
       const monto =
-        g.tipo === 'reserva' && g.modoReserva === 'manual' && !pagado
+        g.tipo === 'reserva' &&
+        g.modoReserva === 'manual' &&
+        !(g.manualDesde && mes < g.manualDesde) &&
+        !pagado
           ? usado
           : (estado?.montoDelMes ?? montoBase(g, mes));
       if (monto <= 0) continue;

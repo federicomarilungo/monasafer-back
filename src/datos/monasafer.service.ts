@@ -257,10 +257,20 @@ export class MonasaferService implements Sesiones {
     gastoId: string,
     cambios: Partial<GastoEntrada>,
   ) {
+    // Pasar una reserva a "cargo cada uso" rige desde este mes: en el historial, los meses
+    // anteriores siguen consumidos enteros (regla de Fede: editar no toca el pasado).
+    const set: Partial<GastoEntrada> & { manualDesde?: string | null } = { ...cambios };
+    if (cambios.modoReserva) {
+      const antes = await this.gastoDe(usuarioId, gastoId);
+      if (cambios.modoReserva === 'manual' && antes.modoReserva !== 'manual') {
+        const actual = mesDe(this.hoy());
+        set.manualDesde = antes.mesInicio < actual ? actual : null;
+      } else if (cambios.modoReserva !== 'manual') set.manualDesde = null;
+    }
     const g = await this.gastos
       .findOneAndUpdate(
         { _id: oid(gastoId), usuarioId: oid(usuarioId), archivado: false },
-        { $set: cambios },
+        { $set: set },
         { new: true, runValidators: true },
       )
       .lean();
@@ -570,6 +580,7 @@ export class MonasaferService implements Sesiones {
         'proporcional' | 'manual' | undefined,
       recurrente: g.recurrente,
       cambiosMonto: g.cambiosMonto ?? [],
+      ...(g.manualDesde ? { manualDesde: g.manualDesde } : {}),
     };
   }
 }

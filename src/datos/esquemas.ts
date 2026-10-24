@@ -65,6 +65,8 @@ export class GastoDb {
   @Prop({ type: String, default: null }) mesFin: string | null;
   @Prop({ type: String, default: null, enum: ['proporcional', 'manual', null] })
   modoReserva: string | null;
+  /** Mes desde el que la reserva es manual si antes bajaba sola (ver motor). */
+  @Prop({ type: String, default: null }) manualDesde: string | null;
   @Prop({ default: false }) recurrente: boolean;
   /** Cambios de monto desde un mes (ver motor): editar no toca los meses anteriores. */
   @Prop({ type: [{ desde: String, monto: Number, _id: false }], default: [] })
