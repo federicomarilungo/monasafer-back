@@ -107,7 +107,10 @@ export function gasto(body: unknown, parcial = false): Partial<GastoEntrada> {
     out.mesInicio = mes(b.mesInicio, 'mesInicio');
   if (tiene('mesFin'))
     out.mesFin = b.mesFin === null ? null : mes(b.mesFin, 'mesFin');
-  if (tiene('modoReserva')) {
+  // `modoReserva: null` es "no es reserva", igual que `mesFin: null`, y es lo que manda el
+  // front cuando confirma un gasto propuesto por Mona. Vale lo mismo que no mandarlo: al
+  // alta se normaliza más abajo según el tipo.
+  if (tiene('modoReserva') && b.modoReserva !== null) {
     if (!['proporcional', 'manual'].includes(b.modoReserva as string))
       throw new BadRequestException('modoReserva: proporcional o manual');
     out.modoReserva = b.modoReserva as 'proporcional' | 'manual';

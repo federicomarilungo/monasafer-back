@@ -6,7 +6,7 @@ import { AppModule } from '../app.module';
 import { MonasaferService } from './monasafer.service';
 import { VerificadorGoogle } from '../auth/google';
 import { Correo } from '../auth/correo';
-import { ClienteIa } from '../premium/asistente';
+import { ClienteIa, interpretarHerramienta } from '../premium/asistente';
 import { MercadoPago } from '../premium/mercadopago';
 import { getModelToken } from '@nestjs/mongoose';
 import { Usuario } from './esquemas';
@@ -655,6 +655,36 @@ describe('API de Monasafer', () => {
       .expect(404);
     await http.delete(`/gastos/${g.id}`).set(b.auth).expect(404);
     await http.post(`/gastos/${g.id}/restaurar`).set(b.auth).expect(404);
+  });
+
+  // Fede, 23/10: le dijo a Mona "compré una hamburguesa de 20 pesos", tocó Agregar y no se
+  // cargó: el gasto que propone Mona trae `modoReserva: null` y el alta lo rechazaba.
+  it('el gasto que propone Mona se puede crear tal cual', async () => {
+    const { auth } = await cuenta('mona@test.com');
+    const propuesta = interpretarHerramienta(
+      'crear_gasto',
+      {
+        nombre: 'Hamburguesa',
+        emoji: '🍔',
+        monto_mensual: 20,
+        tipo: 'puntual',
+        mes_inicio: '2026-10',
+        cantidad_meses: null,
+        modo_reserva: null,
+      },
+      [],
+      new Date(2026, 9, 15),
+    );
+    expect(propuesta?.accion).toBe('crear_gasto');
+    const gasto = (propuesta as { gasto: object }).gasto;
+    const creado = (
+      await http.post('/gastos').set(auth).send(gasto).expect(201)
+    ).body;
+    expect(creado).toMatchObject({
+      nombre: 'Hamburguesa',
+      monto: USD(20),
+      tipo: 'puntual',
+    });
   });
 
   it('rechaza datos inválidos', async () => {
