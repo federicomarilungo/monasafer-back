@@ -16,7 +16,6 @@ import { Correo, emailRecupero, urlApp } from '../auth/correo';
 import crypto from 'crypto';
 import { GastoDb, MesGasto, UsoReservaDb, Usuario } from './esquemas';
 import { GastoEntrada } from './validar';
-import { esAdmin } from '../auth/admin';
 
 const MESES_MAXIMOS = 24;
 
@@ -555,8 +554,6 @@ export class MonasaferService implements Sesiones {
         ? { monto: u.ingresoMensual.monto, diaCobro: u.ingresoMensual.diaCobro }
         : null,
       ingresoCobradoMes: u.ingresoCobradoMes,
-      // Solo aparece en las cuentas admin: el front muestra el botón para probar premium.
-      ...(esAdmin(u) ? { admin: true } : {}),
     };
   }
 

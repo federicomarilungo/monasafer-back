@@ -113,10 +113,9 @@ mes + acumulado de meses anteriores.
   por hora por usuario). Si el próximo cobro ya pasó (tarjeta rechazada), no extiende.
   Borrar la cuenta cancela la suscripción. `GET /premium/config` (público)
   dice si pagos y asistente están activos.
-- `POST /premium/prueba {activo}`: solo cuentas admin (`src/auth/admin.ts`, o
-  `ADMIN_EMAILS`, y que hayan entrado con Google) prenden premium por un año o lo apagan
-  (y se reinician los usos gratis). `GET /perfil` trae `admin: true` solo a esas cuentas;
-  el front muestra el botón 👑 al lado del sonido.
+- `POST /premium/prueba {activo}`: cualquier cuenta prende premium por un año o lo apaga
+  (y se reinician los usos gratis). Es el botón 👑 al lado del sonido, para todos (Fede,
+  23/10).
 
 Login, registro, Google y recupero tienen límite de intentos por IP y por email
 (`src/auth/limite.ts`, en memoria; 429 al pasarse).

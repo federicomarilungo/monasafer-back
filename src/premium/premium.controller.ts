@@ -63,7 +63,7 @@ export class PremiumController {
     return this.s.sincronizar(u);
   }
 
-  /** Botón 👑 del front para probar premium: solo cuentas admin (`src/auth/admin.ts`). */
+  /** Botón 👑 del front para prender y apagar premium: para todos. */
   @Post('premium/prueba')
   @HttpCode(200)
   prueba(@UsuarioId() u: string, @Body() body: unknown) {
