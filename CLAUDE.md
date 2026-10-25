@@ -100,7 +100,11 @@ mes + acumulado de meses anteriores.
   `ANTHROPIC_API_KEY`) con herramientas que solo **proponen** (`crear_gasto`,
   `pagar_gasto`, `usar_reserva`, `editar_gasto`, `monto_del_mes`, `terminar_gasto`, `borrar_gasto`,
   `cambiar_saldo`, `cambiar_ingreso`); el front muestra cada propuesta y la persona confirma con
-  los endpoints de siempre. Prompt y validación en `src/premium/asistente.ts`. Cada llamada
+  los endpoints de siempre. `cargar_cartera` (CEDEARs con cantidad, o valor en pesos para que el front deduzca).
+  Con `imagen {tipo: image/jpeg|png|webp, datos: base64}` (solo premium; si no, `requierePremium`
+  sin gastar mensajes) Mona lee una captura: ticket, resumen de tarjeta o portafolio del broker.
+  La imagen va con el último mensaje y no se guarda; el body JSON acepta hasta 3 MB (`main.ts`).
+  Prompt y validación en `src/premium/asistente.ts`. Cada llamada
   queda en `uso_ia` (tokens y costo); tope global `IA_PRESUPUESTO_DIARIO_USD` (default 1)
   y 60 mensajes por día por premium. Si cambiás de modelo, agregá su precio en `PRECIOS`.
 - Suscripción web con Mercado Pago (`MP_ACCESS_TOKEN`, precio `PREMIUM_PRECIO_ARS`,

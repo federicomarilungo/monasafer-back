@@ -16,6 +16,20 @@ export interface MensajeChat {
   texto: string;
 }
 
+/** Captura que manda la persona (premium): va solo con el último mensaje y no se guarda. */
+export interface ImagenChat {
+  tipo: 'image/jpeg' | 'image/png' | 'image/webp';
+  datos: string;
+}
+
+/** Un CEDEAR de la captura del broker: cantidad si se ve; si no, lo que vale en pesos. */
+export interface PosicionCartera {
+  ticker: string;
+  nombre: string;
+  cantidad: number | null;
+  valor: number | null;
+}
+
 export interface GastoContexto {
   id: string;
   nombre: string;
@@ -41,7 +55,8 @@ export type Propuesta =
   | { accion: 'terminar_gasto'; gastoId: string; mesFin: string; nombre: string }
   | { accion: 'borrar_gasto'; gastoId: string; nombre: string }
   | { accion: 'cambiar_saldo'; saldo: number }
-  | { accion: 'cambiar_ingreso'; monto: number; diaCobro: number };
+  | { accion: 'cambiar_ingreso'; monto: number; diaCobro: number }
+  | { accion: 'cargar_cartera'; posiciones: PosicionCartera[] };
 
 export const HERRAMIENTAS: Anthropic.Tool[] = [
   {
@@ -168,6 +183,38 @@ export const HERRAMIENTAS: Anthropic.Tool[] = [
     },
   },
   {
+    name: 'cargar_cartera',
+    description:
+      'Propone cargar o actualizar los CEDEARs de la cartera de inversiones, casi siempre desde una captura del portafolio del broker (Invertir Online, Balanz, Cocos…). Una posición por ticker con lo que tiene HOY: si ya estaba en la cartera, se reemplaza la cantidad.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        posiciones: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              ticker: { type: 'string', description: 'Símbolo del CEDEAR en BYMA, sin sufijo D ni C: SPY, GOOGL, MELI' },
+              nombre: { type: 'string', description: 'Nombre corto: "S&P 500", "Google"' },
+              cantidad: {
+                type: ['integer', 'null'],
+                description: 'Unidades que tiene (columna Cantidad o Nominales). null si en la captura no se ve',
+              },
+              valor_pesos: {
+                type: ['number', 'null'],
+                description: 'Valor actual de la posición en pesos, solo si no se ve la cantidad (la app la deduce con el precio de hoy)',
+              },
+            },
+            required: ['ticker', 'nombre', 'cantidad', 'valor_pesos'],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ['posiciones'],
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'cambiar_ingreso',
     description: 'Propone cambiar el ingreso mensual (sueldo) y el día del mes en que cobra.',
     input_schema: {
@@ -190,6 +237,7 @@ export function promptSistema(p: {
   gastos: GastoContexto[];
   saldo?: number;
   ingreso?: { monto: number; diaCobro: number } | null;
+  cartera?: { ticker: string; cantidad: number }[];
 }): string {
   const mes = mesDe(p.hoy);
   const lista = p.gastos.length
@@ -201,7 +249,7 @@ export function promptSistema(p: {
         .join('\n')
     : '(todavía no cargó gastos)';
   return `Sos Mona, la mona de Monasafer, una app de gastos previsorios: la persona carga los gastos que va a tener y la app le dice cuánto le sobra a fin de mes.
-Tu trabajo: ayudar a cargar, editar, terminar y borrar gastos, marcarlos como pagados, cargar usos de reservas y corregir el saldo o el ingreso, con las herramientas. Las herramientas solo PROPONEN: la persona confirma con un botón, así que nunca digas que ya quedó guardado; decí algo como "¿lo agrego así?".
+Tu trabajo: ayudar a cargar, editar, terminar y borrar gastos, marcarlos como pagados, cargar usos de reservas, corregir el saldo o el ingreso y cargar la cartera de inversiones (CEDEARs), con las herramientas. Las herramientas solo PROPONEN: la persona confirma con un botón, así que nunca digas que ya quedó guardado; decí algo como "¿lo agrego así?".
 Reglas:
 - Si falta un dato necesario (sobre todo el monto, o cuántas cuotas), preguntalo en una frase antes de proponer. No inventes montos.
 - Cuotas: "6 cuotas" = gasto fijo de 6 meses; si te dan el total, monto_mensual = total / cuotas (redondeá a 2 decimales).
@@ -209,14 +257,15 @@ Reglas:
 - Para tocar un gasto que ya existe, elegilo de la lista por su id (buscalo por nombre aunque lo escriban distinto). Si hay dudas entre dos, preguntá.
 - "Sacar" un gasto de un solo mes = borrar_gasto. Si se repite y quiere sacarlo solo de un mes = monto_del_mes con 0; desde un mes en adelante = terminar_gasto; del todo (también los meses pasados) = borrar_gasto.
 - Si dice "borrá" o "sacá" un gasto que se repite y ya empezó antes de este mes, sin aclarar, lo más probable es que lo quiera terminar: terminar_gasto con ultimo_mes = el mes anterior (o este, si este mes ya lo pagó), así los meses pasados no quedan con información falsa. borrar_gasto solo si pide borrar todo.
+- Si te mandan una captura: un ticket o factura es un gasto (crear_gasto, o usar_reserva si es de una reserva de la lista); un resumen de tarjeta puede tener varios gastos (proponé uno por cada consumo que valga la pena, las cuotas como fijo); el portafolio de un broker es cargar_cartera con todas las posiciones de CEDEARs que se vean. Leé los números con cuidado (en Argentina el punto separa miles y la coma, decimales). Si algo no se lee bien, decilo y preguntá en vez de inventar.
 - Respuestas cortas, cálidas y con un toque de humor de mona, en ${p.idioma === 'en' ? 'inglés' : 'castellano rioplatense'}. Nada de consejos financieros ni temas ajenos a la app.
 La persona se llama ${p.nombre || '(sin nombre)'}.${p.saldo !== undefined ? ` Saldo hoy: ${p.saldo / 100} ${p.moneda}.` : ''}${p.ingreso ? ` Ingreso: ${p.ingreso.monto / 100} ${p.moneda} por mes, cobra el día ${p.ingreso.diaCobro}.` : ''}
 Sus gastos activos:
-${lista}`;
+${lista}${p.cartera?.length ? `\nSu cartera de inversiones hoy: ${p.cartera.map((c) => `${c.ticker} ${c.cantidad}`).join(', ')}.` : ''}`;
 }
 
 /** Historial del chat → mensajes de la API: empieza con el usuario, alterna y termina con el usuario. */
-export function mensajesApi(chat: MensajeChat[]): Anthropic.MessageParam[] {
+export function mensajesApi(chat: MensajeChat[], imagen?: ImagenChat | null): Anthropic.MessageParam[] {
   const out: Anthropic.MessageParam[] = [];
   for (const m of chat.slice(-20)) {
     const role = m.rol === 'mona' ? 'assistant' : 'user';
@@ -228,6 +277,12 @@ export function mensajesApi(chat: MensajeChat[]): Anthropic.MessageParam[] {
     else out.push({ role, content: texto });
   }
   while (out.length && out[out.length - 1].role !== 'user') out.pop();
+  const ultimo = out[out.length - 1];
+  if (imagen && ultimo)
+    ultimo.content = [
+      { type: 'image', source: { type: 'base64', media_type: imagen.tipo, data: imagen.datos } },
+      { type: 'text', text: ultimo.content as string },
+    ];
   return out;
 }
 
@@ -285,6 +340,23 @@ export function interpretarHerramienta(
     const dia = e.dia_cobro;
     if (!monto || typeof dia !== 'number' || !Number.isInteger(dia)) return null;
     return { accion: 'cambiar_ingreso', monto, diaCobro: Math.min(Math.max(dia, 1), 31) };
+  }
+  if (nombre === 'cargar_cartera') {
+    const lista = Array.isArray(e.posiciones) ? e.posiciones.slice(0, 30) : [];
+    const posiciones: PosicionCartera[] = [];
+    for (const x of lista as Record<string, unknown>[]) {
+      const ticker = typeof x?.ticker === 'string' ? x.ticker.trim().toUpperCase() : '';
+      if (!/^[A-Z0-9.]{1,10}$/.test(ticker) || posiciones.some((p) => p.ticker === ticker)) continue;
+      const cantidad =
+        typeof x.cantidad === 'number' && Number.isInteger(x.cantidad) && x.cantidad >= 0 && x.cantidad < 1e9
+          ? x.cantidad
+          : null;
+      const valor = cantidad === null ? aCentavos(x.valor_pesos) : null;
+      if (cantidad === null && valor === null) continue;
+      const nombreP = typeof x.nombre === 'string' && x.nombre.trim() ? x.nombre.trim().slice(0, 40) : ticker;
+      posiciones.push({ ticker, nombre: nombreP, cantidad, valor });
+    }
+    return posiciones.length ? { accion: 'cargar_cartera', posiciones } : null;
   }
   const g = gastos.find((x) => x.id === e.gasto_id);
   if (!g) return null;

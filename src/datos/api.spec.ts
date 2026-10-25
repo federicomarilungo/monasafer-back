@@ -306,6 +306,18 @@ describe('API de Monasafer', () => {
       await http.post('/asistente').set(c.auth).send({ mensajes: [{ rol: 'usuario', texto: 'hola' }] }).expect(200);
     const fin = await http.post('/asistente').set(c.auth).send({ mensajes: [{ rol: 'usuario', texto: 'hola' }] }).expect(200);
     expect(fin.body.requierePremium).toBe(true);
+    // Las capturas son solo premium, sin gastar mensajes.
+    const otra = await cuenta('captura@test.com');
+    const foto = { tipo: 'image/jpeg', datos: 'aGVsbG8=' };
+    const sin = await http.post('/asistente').set(otra.auth)
+      .send({ mensajes: [{ rol: 'usuario', texto: 'mirá' }], imagen: foto }).expect(200);
+    expect(sin.body).toMatchObject({ requierePremium: true, quedan: 10 });
+    await http.post('/asistente').set(otra.auth)
+      .send({ mensajes: [{ rol: 'usuario', texto: 'mirá' }], imagen: { tipo: 'image/gif', datos: 'x' } }).expect(400);
+    await http.post('/premium/prueba').set(otra.auth).send({ activo: true }).expect(200);
+    const con = await http.post('/asistente').set(otra.auth)
+      .send({ mensajes: [{ rol: 'usuario', texto: 'mirá' }], imagen: foto }).expect(200);
+    expect(con.body.propuestas).toHaveLength(1);
   });
 
   it('premium de prueba: cualquiera lo prende y lo apaga con el botón 👑', async () => {

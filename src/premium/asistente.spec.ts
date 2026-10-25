@@ -86,4 +86,35 @@ describe('asistente: interpretar lo que propone el modelo', () => {
       { role: 'user', content: '300' },
     ]);
   });
+
+  it('captura del broker: una posición por ticker, con cantidad o con el valor en pesos', () => {
+    const p = interpretarHerramienta('cargar_cartera', {
+      posiciones: [
+        { ticker: 'spy', nombre: 'S&P 500', cantidad: 41, valor_pesos: 859360 },
+        { ticker: 'GOOGL', nombre: 'Google', cantidad: null, valor_pesos: 210220.5 },
+        { ticker: 'SPY', nombre: 'otra vez', cantidad: 3, valor_pesos: null },
+        { ticker: 'no vale', nombre: 'x', cantidad: 1, valor_pesos: null },
+        { ticker: 'MELI', nombre: '', cantidad: 2.5, valor_pesos: null },
+      ],
+    }, gastos, hoy);
+    expect(p).toEqual({
+      accion: 'cargar_cartera',
+      posiciones: [
+        { ticker: 'SPY', nombre: 'S&P 500', cantidad: 41, valor: null },
+        { ticker: 'GOOGL', nombre: 'Google', cantidad: null, valor: 21022050 },
+      ],
+    });
+    expect(interpretarHerramienta('cargar_cartera', { posiciones: [] }, gastos, hoy)).toBeNull();
+  });
+
+  it('la captura va con el último mensaje de la persona', () => {
+    const r = mensajesApi([{ rol: 'usuario', texto: 'cargá mi cartera' }], { tipo: 'image/png', datos: 'aGVsbG8=' });
+    expect(r).toEqual([{
+      role: 'user',
+      content: [
+        { type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'aGVsbG8=' } },
+        { type: 'text', text: 'cargá mi cartera' },
+      ],
+    }]);
+  });
 });

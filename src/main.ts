@@ -1,11 +1,16 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 
 // Los meses se calculan en hora argentina salvo que se diga otra cosa.
 process.env.TZ ??= 'America/Argentina/Buenos_Aires';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule.crear());
+  const app = await NestFactory.create<NestExpressApplication>(
+    AppModule.crear(),
+  );
+  // Las capturas que se le mandan a Mona (premium) pesan más que los 100 kB por defecto.
+  app.useBodyParser('json', { limit: '3mb' });
   const origenes = (process.env.CORS_ORIGINS ?? 'http://localhost:5173')
     .split(',')
     .map((o) => o.trim())
