@@ -23,6 +23,12 @@ export class Bolsillo {
     default: null,
   })
   cotizacion: { moneda: string; valor: number } | null;
+  /**
+   * 'cedear': un CEDEAR de la cartera de inversiones (premium). La unidad es el ticker
+   * (SPY, GOOGL), sin decimales, y se valúa con el precio del día en pesos.
+   */
+  @Prop({ type: String, default: null, enum: ['cedear', null] })
+  mercado: 'cedear' | null;
   /** "Sin asignar": adonde va lo que se ahorra sin elegir dónde (Omitir). Uno por usuario. */
   @Prop({ default: false }) generico: boolean;
   @Prop({ default: false }) archivado: boolean;

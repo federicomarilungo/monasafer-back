@@ -6,6 +6,7 @@ import { AppModule } from '../app.module';
 import { MonasaferService } from '../datos/monasafer.service';
 import { CajonService } from './cajon.service';
 import { FuenteCotizaciones } from './cotizaciones';
+import { leerCedears } from './cedears';
 
 // El cajón de bananas contra un Mongo en memoria. Hoy = 15/10/2026.
 jest.setTimeout(60000);
@@ -496,5 +497,102 @@ describe('Cajón de bananas', () => {
     await http.put('/cajon/orden').set(auth).send({ ids: 'x' }).expect(400);
     for (const id of [a, b, c])
       await http.delete(`/cajon/bolsillos/${id}`).set(auth).expect(200);
+  });
+  it('precios de CEDEARs: solo los pedidos, en centavos de peso y sin las versiones en dólares', async () => {
+    const filas = [
+      { symbol: 'SPY', c: 20960, px_bid: 20920, px_ask: 20980 },
+      { symbol: 'SPYD', c: 13.47 },
+      { symbol: 'SPYC', c: 13.4 },
+      { symbol: 'GOOGL', c: 0, px_bid: 9125, px_ask: 9150 },
+      { symbol: 'AMD', c: 41000 },
+      ...Array.from({ length: 60 }, (_, i) => ({ symbol: `X${i}`, c: 100 })),
+    ];
+    expect(leerCedears(filas)).toMatchObject({
+      SPY: 2096000,
+      GOOGL: 913750,
+      AMD: 4100000,
+    });
+    expect(leerCedears(filas).SPYD).toBeUndefined();
+    const fetchFalso = jest
+      .spyOn(global, 'fetch')
+      .mockImplementation(
+        (async () =>
+          new Response(JSON.stringify(filas), { status: 200 })) as typeof fetch,
+      );
+    try {
+      const r = (
+        await http.get('/cajon/cedears?simbolos=spy,googl,NOEXISTE').expect(200)
+      ).body;
+      expect(r.moneda).toBe('ARS');
+      expect(r.precios).toEqual({ SPY: 2096000, GOOGL: 913750 });
+      await http.get('/cajon/cedears').expect(400);
+    } finally {
+      fetchFalso.mockRestore();
+    }
+  });
+
+  it('un CEDEAR en la cartera: premium, por ticker, sin decimales y sin repetir', async () => {
+    const nuevo = {
+      nombre: 'S&P 500',
+      emoji: '📈',
+      unidad: 'spy',
+      mercado: 'cedear',
+    };
+    await http.post('/cajon/bolsillos').set(auth).send(nuevo).expect(403);
+    await http
+      .post('/premium/prueba')
+      .set(auth)
+      .send({ activo: true })
+      .expect(200);
+    const spy = (
+      await http.post('/cajon/bolsillos').set(auth).send(nuevo).expect(201)
+    ).body;
+    expect(spy).toMatchObject({
+      unidad: 'SPY',
+      decimales: 0,
+      mercado: 'cedear',
+    });
+    await http.post('/cajon/bolsillos').set(auth).send(nuevo).expect(409);
+    await http
+      .post('/cajon/bolsillos')
+      .set(auth)
+      .send({ ...nuevo, unidad: 'no vale!' })
+      .expect(400);
+    // Las unidades se cargan como cualquier total (el front las deduce del valor de hoy).
+    await http
+      .post(`/cajon/bolsillos/${spy.id}/ajustar`)
+      .set(auth)
+      .send({ cantidad: 41, detalle: 'Lo que tenía en IOL' })
+      .expect(201);
+    // Nombre y emoji se editan; el ticker, no.
+    await http
+      .patch(`/cajon/bolsillos/${spy.id}`)
+      .set(auth)
+      .send({ nombre: 'S&P', unidad: 'SPY' })
+      .expect(200);
+    await http
+      .patch(`/cajon/bolsillos/${spy.id}`)
+      .set(auth)
+      .send({ unidad: 'QQQ' })
+      .expect(400);
+    const b = (await cajon()).bolsillos.find(
+      (x: { id: string }) => x.id === spy.id,
+    );
+    expect(b).toMatchObject({ nombre: 'S&P', cantidad: 41, mercado: 'cedear' });
+    // Si se vence premium, lo cargado sigue ahí.
+    await http
+      .post('/premium/prueba')
+      .set(auth)
+      .send({ activo: false })
+      .expect(200);
+    expect(
+      (await cajon()).bolsillos.some((x: { id: string }) => x.id === spy.id),
+    ).toBe(true);
+    await http
+      .post(`/cajon/bolsillos/${spy.id}/ajustar`)
+      .set(auth)
+      .send({ cantidad: 0, detalle: 'Vendí' })
+      .expect(201);
+    await http.delete(`/cajon/bolsillos/${spy.id}`).set(auth).expect(200);
   });
 });

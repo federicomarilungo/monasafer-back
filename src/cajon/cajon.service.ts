@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -25,6 +26,7 @@ export interface NuevoBolsillo {
   unidad: string;
   decimales: number;
   cotizacion?: { moneda: string; valor: number } | null;
+  mercado?: 'cedear' | null;
 }
 
 @Injectable()
@@ -65,6 +67,7 @@ export class CajonService {
           unidad: b.unidad,
           decimales: b.decimales,
           cotizacion: b.cotizacion ?? null,
+          mercado: b.mercado ?? null,
           generico: b.generico,
           cantidad: cantidades.get(String(b._id)) ?? 0,
         })),
@@ -86,13 +89,27 @@ export class CajonService {
 
   async crearBolsillo(usuarioId: string, b: NuevoBolsillo) {
     const id = oid(usuarioId);
+    if (b.mercado === 'cedear') {
+      // La cartera de inversiones es premium (Fede, 25/10). Lo que ya se cargó se sigue
+      // viendo y editando si vence: solo se frena sumar CEDEARs nuevos.
+      const u = await this.usuarios.findById(id, { premiumHasta: 1 }).lean();
+      if (!u?.premiumHasta || u.premiumHasta.getTime() <= Date.now())
+        throw new ForbiddenException('La cartera de inversiones es Premium');
+      const ya = await this.bolsillos.findOne({
+        usuarioId: id,
+        mercado: 'cedear',
+        unidad: b.unidad,
+        archivado: false,
+      });
+      if (ya) throw new ConflictException(`Ya tenés ${b.unidad} en la cartera`);
+    }
     if (
       (await this.bolsillos.countDocuments({
         usuarioId: id,
         archivado: false,
-      })) >= 30
+      })) >= 50
     )
-      throw new BadRequestException('Hasta 30 bolsillos');
+      throw new BadRequestException('Hasta 50 bolsillos');
     const creado = await this.bolsillos.create({
       ...b,
       usuarioId: id,
@@ -115,6 +132,14 @@ export class CajonService {
     // cómo se leen las cantidades guardadas, así que solo se tocan con el bolsillo vacío.
     if (cambios.unidad !== undefined || cambios.decimales !== undefined) {
       const actual = await this.bolsilloDe(usuarioId, bolsilloId);
+      if (
+        actual.mercado &&
+        ((cambios.unidad ?? actual.unidad) !== actual.unidad ||
+          (cambios.decimales ?? 0) !== 0)
+      )
+        throw new BadRequestException(
+          'Un CEDEAR no cambia de ticker: creá otro',
+        );
       if (actual.generico)
         throw new BadRequestException(
           '"Sin asignar" va en la moneda de la cuenta',
@@ -479,6 +504,7 @@ export class CajonService {
       unidad: b.unidad,
       decimales: b.decimales,
       cotizacion: b.cotizacion ?? null,
+      mercado: b.mercado ?? null,
       generico: b.generico,
     };
   }
