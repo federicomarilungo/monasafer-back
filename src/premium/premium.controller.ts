@@ -4,7 +4,18 @@ import { UsuarioId } from '../auth/usuario.guard';
 import { ipDe, Limitador } from '../auth/limite';
 import * as v from '../datos/validar';
 import { FUNCIONES, Funcion, PremiumService } from './premium.service';
-import { MensajeChat } from './asistente';
+import { ImagenChat, MensajeChat } from './asistente';
+
+/** Captura opcional: `{tipo: image/jpeg|png|webp, datos: base64}`, hasta ~2 MB. */
+function imagen(x: unknown): ImagenChat | null {
+  if (x == null) return null;
+  const o = v.objeto(x);
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(o.tipo as string))
+    throw new BadRequestException('imagen.tipo: image/jpeg, image/png o image/webp');
+  if (typeof o.datos !== 'string' || !o.datos || o.datos.length > 2_800_000 || !/^[A-Za-z0-9+/]+=*$/.test(o.datos))
+    throw new BadRequestException('imagen.datos: base64 de hasta 2 MB');
+  return { tipo: o.tipo as ImagenChat['tipo'], datos: o.datos };
+}
 
 type ReqHttp = { headers: Record<string, unknown>; ip?: string };
 
@@ -47,7 +58,7 @@ export class PremiumController {
         throw new BadRequestException('cada mensaje: {rol: usuario|mona, texto}');
       return { rol: o.rol, texto: o.texto.slice(0, 1000) };
     });
-    return this.s.asistente(u, chat);
+    return this.s.asistente(u, chat, imagen(v.objeto(body).imagen));
   }
 
   @Post('premium/suscribir')

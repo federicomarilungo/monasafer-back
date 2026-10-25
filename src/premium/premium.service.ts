@@ -18,9 +18,11 @@ import {
 } from '../datos/esquemas';
 import { urlApp } from '../auth/correo';
 import { MercadoPago, PreapprovalMp } from './mercadopago';
+import { CajonService } from '../cajon/cajon.service';
 import {
   ClienteIa,
   GastoContexto,
+  ImagenChat,
   interpretarHerramienta,
   MensajeChat,
   mensajesApi,
@@ -49,6 +51,7 @@ export class PremiumService {
     @InjectModel(UsoIa.name) private readonly usosIa: Model<UsoIa>,
     private readonly mp: MercadoPago,
     private readonly ia: ClienteIa,
+    private readonly cajon: CajonService,
   ) {}
 
   hoy(): Date {
@@ -97,10 +100,10 @@ export class PremiumService {
 
   // ---- Asistente (S3) ----
 
-  async asistente(usuarioId: string, chat: MensajeChat[]) {
+  async asistente(usuarioId: string, chat: MensajeChat[], imagen: ImagenChat | null = null) {
     if (!this.ia.configurado())
       throw new ServiceUnavailableException('El asistente todavía no está activo');
-    const mensajes = mensajesApi(chat);
+    const mensajes = mensajesApi(chat, imagen);
     if (!mensajes.length) throw new BadRequestException('Escribí algo');
     const hoy = this.hoy();
     const dia = hoy.toISOString().slice(0, 10);
@@ -115,6 +118,9 @@ export class PremiumService {
       );
     const u = await this.usuario(usuarioId);
     const premium = this.esPremium(u);
+    // Leer capturas es solo premium (Fede, 25/10): sin gastar un mensaje gratis.
+    if (imagen && !premium)
+      return { texto: null, propuestas: [], requierePremium: true, quedan: u.usosGratis?.asistente ?? 0 };
     if (premium) {
       const hoyUsados = await this.usosIa.countDocuments({ usuarioId: u._id, dia });
       if (hoyUsados >= MENSAJES_DIARIOS_PREMIUM)
@@ -128,6 +134,9 @@ export class PremiumService {
       return { texto: null, propuestas: [], requierePremium: true, quedan: 0 };
 
     const gastos = await this.contexto(u._id, mesDe(hoy));
+    const cartera = (await this.cajon.cajon(usuarioId)).bolsillos
+      .filter((b) => b.mercado === 'cedear')
+      .map((b) => ({ ticker: b.unidad, cantidad: b.cantidad }));
     let respuesta;
     try {
       respuesta = await this.ia.preguntar(
@@ -139,6 +148,7 @@ export class PremiumService {
           gastos,
           saldo: u.saldo,
           ingreso: u.ingresoMensual ?? null,
+          cartera,
         }),
         mensajes,
       );
