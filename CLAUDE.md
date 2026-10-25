@@ -83,6 +83,11 @@ manda sobre la de mercado al valuar el cajón (lo que no cotiza, o el valor prop
   (respaldo CoinGecko PAX Gold, onza troy) y ARS al dólar MEP de dolarapi. Caché de 1 h
   (`src/cajon/cotizaciones.ts`). La moneda base es `monedaCajon` del perfil (default: la de
   la cuenta); el front convierte (un bolsillo en `g` se valúa como oro).
+- Cartera de inversiones (premium, Fede 25/10): un bolsillo con `mercado: 'cedear'` es un
+  CEDEAR; la unidad es el ticker (`SPY`), sin decimales, uno por ticker. Crearlo pide
+  premium (403); lo ya cargado se sigue viendo si vence. `GET /cajon/cedears?simbolos=SPY,GOOGL`
+  (público) da centavos de peso por CEDEAR de data912.com (caché 20 min, sin las versiones
+  en dólares SPYD/SPYC, `src/cajon/cedears.ts`); el front lo pasa a la moneda base con el MEP.
 `GET /datos` trae `ahorros` del mes para `partirBalance` (motor/ahorro.ts): balance del
 mes + acumulado de meses anteriores.
 

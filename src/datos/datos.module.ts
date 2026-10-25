@@ -34,6 +34,7 @@ import {
 import { CajonController } from '../cajon/cajon.controller';
 import { CajonService } from '../cajon/cajon.service';
 import { FuenteCotizaciones } from '../cajon/cotizaciones';
+import { FuenteCedears } from '../cajon/cedears';
 import { Comentario, ComentarioSchema } from '../comentarios/esquemas';
 import { ComentariosController } from '../comentarios/comentarios.controller';
 import { ComentariosService } from '../comentarios/comentarios.service';
@@ -64,6 +65,7 @@ import { ComentariosService } from '../comentarios/comentarios.service';
     CajonService,
     ComentariosService,
     FuenteCotizaciones,
+    FuenteCedears,
     MercadoPago,
     ClienteIa,
     { provide: Tokens, useFactory: () => Tokens.desdeEntorno() },

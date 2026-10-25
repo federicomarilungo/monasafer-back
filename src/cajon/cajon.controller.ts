@@ -8,11 +8,13 @@ import {
   Patch,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { UsuarioId } from '../auth/usuario.guard';
 import { Public } from '../auth/public.decorator';
 import { ServiceUnavailableException } from '@nestjs/common';
 import { FuenteCotizaciones } from './cotizaciones';
+import { FuenteCedears } from './cedears';
 import * as v from '../datos/validar';
 import { MONEDAS } from '../datos/esquemas';
 import { CajonService } from './cajon.service';
@@ -54,6 +56,7 @@ export class CajonController {
   constructor(
     private readonly s: CajonService,
     private readonly cotizaciones: FuenteCotizaciones,
+    private readonly cedears: FuenteCedears,
   ) {}
 
   /** Público a propósito: son cotizaciones de mercado (las usa también la demo). */
@@ -65,6 +68,27 @@ export class CajonController {
     return c;
   }
 
+  /**
+   * Público, como las cotizaciones. Solo los que se piden (`?simbolos=SPY,GOOGL`): el front
+   * no carga los ~1000 CEDEARs si no los usa. Los que no existen no vienen.
+   */
+  @Public()
+  @Get('cedears')
+  async preciosCedears(@Query('simbolos') simbolos?: string) {
+    const pedidos = String(simbolos ?? '')
+      .toUpperCase()
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!pedidos.length || pedidos.length > 60)
+      throw new BadRequestException('simbolos: de 1 a 60, separados por coma');
+    const c = await this.cedears.obtener();
+    if (!c) throw new ServiceUnavailableException('Sin precios por ahora');
+    const precios: Record<string, number> = {};
+    for (const s of pedidos) if (c.precios[s]) precios[s] = c.precios[s];
+    return { moneda: c.moneda, precios, fecha: c.fecha };
+  }
+
   @Get()
   cajon(@UsuarioId() u: string) {
     return this.s.cajon(u);
@@ -73,6 +97,20 @@ export class CajonController {
   @Post('bolsillos')
   crearBolsillo(@UsuarioId() u: string, @Body() body: unknown) {
     const b = v.objeto(body);
+    if (b.mercado === 'cedear') {
+      const ticker = typeof b.unidad === 'string' ? b.unidad.toUpperCase() : '';
+      if (!/^[A-Z0-9.]{1,10}$/.test(ticker))
+        throw new BadRequestException('unidad: el ticker del CEDEAR (SPY)');
+      return this.s.crearBolsillo(u, {
+        nombre: v.texto(b.nombre, 'nombre', 40),
+        emoji: v.texto(b.emoji, 'emoji', 16, false),
+        unidad: ticker,
+        decimales: 0,
+        cotizacion: null,
+        mercado: 'cedear',
+      });
+    }
+    if (b.mercado != null) throw new BadRequestException('mercado: cedear');
     const decimales = b.decimales === undefined ? 2 : Number(b.decimales);
     if (!Number.isInteger(decimales) || decimales < 0 || decimales > 8)
       throw new BadRequestException('decimales: 0 a 8');
