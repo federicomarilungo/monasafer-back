@@ -96,6 +96,30 @@ describe('partirBalance', () => {
     expect(p).toEqual({ delMes: 0, acumulado: USD(350), total: USD(350) });
   });
 
+  it('un ingreso extra del mes cuenta como del mes, no como acumulado', () => {
+    // Entraron 300 de un trabajo aparte: ya están en el saldo.
+    const conExtra: Datos = {
+      ...base,
+      perfil: { ...base.perfil, saldo: base.perfil.saldo + USD(300) },
+      ingresosExtra: [
+        { mes: '2026-10', monto: USD(300) },
+        { mes: '2026-09', monto: USD(999) },
+      ],
+    };
+    const [oct, nov] = proyectar(conExtra, hoy, '2026-11');
+    expect(partirBalance(conExtra, oct)).toEqual({
+      delMes: USD(460), // 160 + 300
+      acumulado: USD(650),
+      total: USD(1110),
+    });
+    // Al mes siguiente ya es parte de lo que traés.
+    expect(partirBalance(conExtra, nov)).toEqual({
+      delMes: USD(200),
+      acumulado: USD(1110),
+      total: USD(1310),
+    });
+  });
+
   it('mes futuro: el acumulado es el balance del mes anterior', () => {
     const [oct, nov] = proyectar(base, hoy, '2026-11');
     expect(partirBalance(base, nov)).toEqual({

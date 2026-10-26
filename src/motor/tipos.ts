@@ -58,11 +58,19 @@ export interface Perfil {
   ingresoCobradoMes?: Mes | null;
 }
 
+/** Plata que entró aparte del ingreso mensual (ya está sumada al saldo). */
+export interface IngresoExtra {
+  mes: Mes;
+  monto: number;
+}
+
 export interface Datos {
   perfil: Perfil;
   gastos: Gasto[];
   estados: EstadoMes[];
   usos: UsoReserva[];
+  /** Ingresos extra (del mes actual alcanza): cuentan como "del mes" al partir el balance. */
+  ingresosExtra?: IngresoExtra[];
 }
 
 export interface LineaGasto {

@@ -55,6 +55,7 @@ export type Propuesta =
   | { accion: 'terminar_gasto'; gastoId: string; mesFin: string; nombre: string }
   | { accion: 'borrar_gasto'; gastoId: string; nombre: string }
   | { accion: 'cambiar_saldo'; saldo: number }
+  | { accion: 'sumar_ingreso'; monto: number; detalle: string }
   | { accion: 'cambiar_ingreso'; monto: number; diaCobro: number }
   | { accion: 'cargar_cartera'; posiciones: PosicionCartera[] };
 
@@ -183,6 +184,20 @@ export const HERRAMIENTAS: Anthropic.Tool[] = [
     },
   },
   {
+    name: 'sumar_ingreso',
+    description:
+      'Propone sumar al saldo una plata que entró aparte del ingreso mensual (una changa, un reintegro, un regalo, un aguinaldo). Para corregir el saldo usá cambiar_saldo.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        monto: { type: 'number', description: 'En la moneda de la persona (no centavos)' },
+        detalle: { type: 'string', description: 'De dónde vino, corto: "Changa", "Aguinaldo"' },
+      },
+      required: ['monto'],
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'cargar_cartera',
     description:
       'Propone cargar o actualizar los CEDEARs de la cartera de inversiones, casi siempre desde una captura del portafolio del broker (Invertir Online, Balanz, Cocos…). Una posición por ticker con lo que tiene HOY: si ya estaba en la cartera, se reemplaza la cantidad.',
@@ -249,7 +264,7 @@ export function promptSistema(p: {
         .join('\n')
     : '(todavía no cargó gastos)';
   return `Sos Mona, la mona de Monasafer, una app de gastos previsorios: la persona carga los gastos que va a tener y la app le dice cuánto le sobra a fin de mes.
-Tu trabajo: ayudar a cargar, editar, terminar y borrar gastos, marcarlos como pagados, cargar usos de reservas, corregir el saldo o el ingreso y cargar la cartera de inversiones (CEDEARs), con las herramientas. Las herramientas solo PROPONEN: la persona confirma con un botón, así que nunca digas que ya quedó guardado; decí algo como "¿lo agrego así?".
+Tu trabajo: ayudar a cargar, editar, terminar y borrar gastos, marcarlos como pagados, cargar usos de reservas, corregir el saldo o el ingreso, sumar al saldo una plata que entró aparte del sueldo y cargar la cartera de inversiones (CEDEARs), con las herramientas. Las herramientas solo PROPONEN: la persona confirma con un botón, así que nunca digas que ya quedó guardado; decí algo como "¿lo agrego así?".
 Reglas:
 - Si falta un dato necesario (sobre todo el monto, o cuántas cuotas), preguntalo en una frase antes de proponer. No inventes montos.
 - Cuotas: "6 cuotas" = gasto fijo de 6 meses; si te dan el total, monto_mensual = total / cuotas (redondeá a 2 decimales).
@@ -334,6 +349,12 @@ export function interpretarHerramienta(
     const n = e.saldo;
     if (typeof n !== 'number' || !Number.isFinite(n) || Math.abs(n) >= 1e11) return null;
     return { accion: 'cambiar_saldo', saldo: Math.round(n * 100) };
+  }
+  if (nombre === 'sumar_ingreso') {
+    const monto = aCentavos(e.monto);
+    if (!monto) return null;
+    const detalle = typeof e.detalle === 'string' ? e.detalle.trim().slice(0, 120) : '';
+    return { accion: 'sumar_ingreso', monto, detalle };
   }
   if (nombre === 'cambiar_ingreso') {
     const monto = aCentavos(e.monto);

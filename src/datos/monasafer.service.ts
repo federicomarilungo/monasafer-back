@@ -14,7 +14,7 @@ import { googleClientId, VerificadorGoogle } from '../auth/google';
 import { Sesiones } from '../auth/usuario.guard';
 import { Correo, emailRecupero, urlApp } from '../auth/correo';
 import crypto from 'crypto';
-import { GastoDb, MesGasto, UsoReservaDb, Usuario } from './esquemas';
+import { GastoDb, IngresoExtraDb, MesGasto, UsoReservaDb, Usuario } from './esquemas';
 import { GastoEntrada } from './validar';
 
 const MESES_MAXIMOS = 24;
@@ -34,6 +34,8 @@ export class MonasaferService implements Sesiones {
     @InjectModel(GastoDb.name) private readonly gastos: Model<GastoDb>,
     @InjectModel(MesGasto.name) private readonly meses: Model<MesGasto>,
     @InjectModel(UsoReservaDb.name) private readonly usos: Model<UsoReservaDb>,
+    @InjectModel(IngresoExtraDb.name)
+    private readonly ingresos: Model<IngresoExtraDb>,
     private readonly tokens: Tokens,
     private readonly google: VerificadorGoogle,
     private readonly correo: Correo,
@@ -171,6 +173,7 @@ export class MonasaferService implements Sesiones {
       this.gastos.deleteMany({ usuarioId: u._id }),
       this.meses.deleteMany({ usuarioId: u._id }),
       this.usos.deleteMany({ usuarioId: u._id }),
+      this.ingresos.deleteMany({ usuarioId: u._id }),
     ]);
     await this.usuarios.deleteOne({ _id: u._id });
     this.cacheSesiones.delete(u.id);
@@ -232,6 +235,68 @@ export class MonasaferService implements Sesiones {
     );
     if (!r) throw new ConflictException('El ingreso de este mes ya se cobró');
     return this.perfilPublico(r);
+  }
+
+  /**
+   * Plata que entró en cualquier momento del mes, aparte del ingreso mensual (un trabajo
+   * extra, un reintegro, un regalo): se suma al saldo y queda anotada para poder deshacerla.
+   */
+  async agregarIngreso(usuarioId: string, monto: number, detalle: string) {
+    if (monto <= 0) throw new BadRequestException('monto tiene que ser mayor a 0');
+    const u = await this.usuario(usuarioId);
+    const i = await this.ingresos.create({
+      usuarioId: u._id,
+      mes: mesDe(this.hoy()),
+      monto,
+      detalle,
+    });
+    const r = await this.usuarios.findByIdAndUpdate(
+      u._id,
+      { $inc: { saldo: monto } },
+      { new: true },
+    );
+    if (!r) throw new UnauthorizedException();
+    return { ingreso: this.ingresoPublico(i), perfil: this.perfilPublico(r) };
+  }
+
+  async listarIngresos(usuarioId: string, mes: string) {
+    const lista = await this.ingresos
+      .find({ usuarioId: oid(usuarioId), mes })
+      .sort({ createdAt: 1 })
+      .lean();
+    return lista.map((i) => this.ingresoPublico(i));
+  }
+
+  /** Borra un ingreso extra y se lo resta al saldo (el "Deshacer" o un error de carga). */
+  async borrarIngreso(usuarioId: string, ingresoId: string) {
+    const i = await this.ingresos.findOneAndDelete({
+      _id: oid(ingresoId),
+      usuarioId: oid(usuarioId),
+    });
+    if (!i) throw new NotFoundException();
+    const r = await this.usuarios.findByIdAndUpdate(
+      i.usuarioId,
+      { $inc: { saldo: -i.monto } },
+      { new: true },
+    );
+    if (!r) throw new UnauthorizedException();
+    return { ok: true, perfil: this.perfilPublico(r) };
+  }
+
+  private ingresoPublico(i: {
+    _id: Types.ObjectId;
+    mes: string;
+    monto: number;
+    detalle?: string;
+    createdAt?: Date;
+  }) {
+    return {
+      id: String(i._id),
+      mes: i.mes,
+      monto: i.monto,
+      detalle: i.detalle ?? '',
+      creado: i.createdAt ?? null,
+    };
   }
 
   // ---- Gastos ----
@@ -439,13 +504,14 @@ export class MonasaferService implements Sesiones {
   async datos(usuarioId: string): Promise<Datos & { mesActual: string }> {
     const id = oid(usuarioId);
     const actual = mesDe(this.hoy());
-    const [u, gastos, estados, usos] = await Promise.all([
+    const [u, gastos, estados, usos, ingresosExtra] = await Promise.all([
       this.usuario(usuarioId),
       this.gastos.find({ usuarioId: id, archivado: false }).lean(),
       this.meses.find({ usuarioId: id, mes: { $gte: actual } }).lean(),
       this.usos
         .find({ usuarioId: id, mes: { $gte: sumarMeses(actual, -1) } })
         .lean(),
+      this.listarIngresos(usuarioId, actual),
     ]);
     return {
       mesActual: actual,
@@ -466,6 +532,7 @@ export class MonasaferService implements Sesiones {
         mes: x.mes,
         monto: x.monto,
       })),
+      ingresosExtra,
     };
   }
 

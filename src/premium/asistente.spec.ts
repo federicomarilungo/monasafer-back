@@ -68,6 +68,8 @@ describe('asistente: interpretar lo que propone el modelo', () => {
 
   it('saldo e ingreso', () => {
     expect(interpretarHerramienta('cambiar_saldo', { saldo: 1234.5 }, gastos, hoy)).toEqual({ accion: 'cambiar_saldo', saldo: 123450 });
+    expect(interpretarHerramienta('sumar_ingreso', { monto: 150, detalle: ' Changa ' }, gastos, hoy)).toEqual({ accion: 'sumar_ingreso', monto: 15000, detalle: 'Changa' });
+    expect(interpretarHerramienta('sumar_ingreso', { monto: -5 }, gastos, hoy)).toBeNull();
     expect(interpretarHerramienta('cambiar_ingreso', { monto: 900000, dia_cobro: 40 }, gastos, hoy))
       .toEqual({ accion: 'cambiar_ingreso', monto: 90000000, diaCobro: 31 });
     expect(interpretarHerramienta('cambiar_ingreso', { monto: 0, dia_cobro: 5 }, gastos, hoy)).toBeNull();

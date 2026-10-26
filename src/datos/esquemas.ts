@@ -104,6 +104,17 @@ export class UsoReservaDb {
 }
 export const UsoReservaSchema = SchemaFactory.createForClass(UsoReservaDb);
 
+/** Plata que entró aparte del ingreso mensual (se suma al saldo al cargarla). */
+@Schema({ collection: 'ingresos_extra', timestamps: true })
+export class IngresoExtraDb {
+  @Prop({ type: Types.ObjectId, required: true, index: true })
+  usuarioId: Types.ObjectId;
+  @Prop({ required: true }) mes: string;
+  @Prop({ required: true }) monto: number;
+  @Prop({ default: '' }) detalle: string;
+}
+export const IngresoExtraSchema = SchemaFactory.createForClass(IngresoExtraDb);
+
 /** Suscripción premium pagada por la web (S8). Una por cada intento de suscribirse. */
 @Schema({ collection: 'suscripciones', timestamps: true })
 export class Suscripcion {

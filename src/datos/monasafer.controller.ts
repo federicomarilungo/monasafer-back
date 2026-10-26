@@ -164,6 +164,26 @@ export class MonasaferController {
     return this.s.cobrarIngreso(u);
   }
 
+  @Post('ingresos')
+  agregarIngreso(@UsuarioId() u: string, @Body() body: unknown) {
+    const b = v.objeto(body);
+    return this.s.agregarIngreso(
+      u,
+      v.monto(b.monto),
+      v.texto(b.detalle, 'detalle', 120, false),
+    );
+  }
+
+  @Get('ingresos')
+  ingresos(@UsuarioId() u: string, @Query('mes') mes?: string) {
+    return this.s.listarIngresos(u, mes === undefined ? mesDe(this.s.hoy()) : v.mes(mes));
+  }
+
+  @Delete('ingresos/:id')
+  borrarIngreso(@UsuarioId() u: string, @Param('id') id: string) {
+    return this.s.borrarIngreso(u, id);
+  }
+
   @Get('gastos')
   gastos(@UsuarioId() u: string) {
     return this.s.listarGastos(u);

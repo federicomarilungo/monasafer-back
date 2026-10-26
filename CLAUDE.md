@@ -50,6 +50,7 @@ Sin `MONGO_URI` la API levanta solo con `GET /ping`, `GET /salud` y `POST /admin
 | `GET /auth/config` (público) | `{googleClientId}`: el front muestra el botón solo si hay. Client ID en `src/auth/google.ts` o `GOOGLE_CLIENT_ID` |
 | `GET/PATCH /perfil` | nombre, moneda (USD, ARS, EUR, MXN, CLP, COP, UYU, PEN, BRL), idioma (es, en), saldo, `ingresoMensual {monto, diaCobro}` |
 | `POST /perfil/cobrar-ingreso` | suma el ingreso al saldo, una vez por mes |
+| `POST /ingresos`, `GET /ingresos?mes=`, `DELETE /ingresos/:id` | ingreso extra en cualquier momento del mes `{monto, detalle?}` → `{ingreso, perfil}`: suma al saldo (borrar lo resta). `GET /datos` trae los del mes en `ingresosExtra`, que `partirBalance` cuenta como del mes. Mona lo propone con `sumar_ingreso` |
 | `GET/POST /gastos`, `PATCH/DELETE /gastos/:id` | alta, edición y archivado (DELETE archiva, también los meses pasados: para terminar un fijo se usa `mesFin`) |
 | `POST /gastos/:id/restaurar` | desarchiva (el "Deshacer" del front) |
 | `PATCH /gastos/:id` con `cambiosMonto` | `[{desde, monto}]`: el monto cambia desde ese mes en adelante (el motor usa el último que ya rige), así editar no reescribe los meses anteriores |

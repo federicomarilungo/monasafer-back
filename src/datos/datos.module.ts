@@ -8,6 +8,8 @@ import { Correo } from '../auth/correo';
 import {
   GastoDb,
   GastoSchema,
+  IngresoExtraDb,
+  IngresoExtraSchema,
   MesGasto,
   MesGastoSchema,
   UsoReservaDb,
@@ -46,6 +48,7 @@ import { ComentariosService } from '../comentarios/comentarios.service';
       { name: GastoDb.name, schema: GastoSchema },
       { name: MesGasto.name, schema: MesGastoSchema },
       { name: UsoReservaDb.name, schema: UsoReservaSchema },
+      { name: IngresoExtraDb.name, schema: IngresoExtraSchema },
       { name: Suscripcion.name, schema: SuscripcionSchema },
       { name: UsoIa.name, schema: UsoIaSchema },
       { name: Bolsillo.name, schema: BolsilloSchema },

@@ -480,6 +480,30 @@ describe('API de Monasafer', () => {
       USD(1100),
     );
 
+    // Un ingreso extra en cualquier momento del mes: suma al saldo y al balance, y se deshace
+    const extra = (
+      await http
+        .post('/ingresos')
+        .set(auth)
+        .send({ monto: USD(150), detalle: 'Changa' })
+        .expect(201)
+    ).body;
+    expect(extra.perfil.saldo).toBe(USD(1950));
+    expect(extra.ingreso).toMatchObject({ mes: '2026-10', monto: USD(150), detalle: 'Changa' });
+    expect((await http.get('/meses/2026-10').set(auth)).body.balance).toBe(
+      USD(1250),
+    );
+    expect((await http.get('/datos').set(auth)).body.ingresosExtra).toEqual([
+      expect.objectContaining({ id: extra.ingreso.id, monto: USD(150) }),
+    ]);
+    await http.post('/ingresos').set(auth).send({ monto: 0 }).expect(400);
+    expect(
+      (await http.delete(`/ingresos/${extra.ingreso.id}`).set(auth).expect(200))
+        .body.perfil.saldo,
+    ).toBe(USD(1800));
+    await http.delete(`/ingresos/${extra.ingreso.id}`).set(auth).expect(404);
+    expect((await http.get('/ingresos').set(auth)).body).toEqual([]);
+
     // Pagar descuenta del saldo y el balance queda igual; despagar lo devuelve
     expect(
       (
@@ -685,6 +709,11 @@ describe('API de Monasafer', () => {
       .expect(404);
     await http.delete(`/gastos/${g.id}`).set(b.auth).expect(404);
     await http.post(`/gastos/${g.id}/restaurar`).set(b.auth).expect(404);
+    const i = (
+      await http.post('/ingresos').set(a.auth).send({ monto: USD(5) }).expect(201)
+    ).body.ingreso;
+    expect((await http.get('/ingresos').set(b.auth)).body).toHaveLength(0);
+    await http.delete(`/ingresos/${i.id}`).set(b.auth).expect(404);
   });
 
   // Fede, 23/10: le dijo a Mona "compré una hamburguesa de 20 pesos", tocó Agregar y no se
