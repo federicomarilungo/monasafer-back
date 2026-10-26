@@ -6,6 +6,8 @@ import { SESIONES, UsuarioGuard } from '../auth/usuario.guard';
 import { VerificadorGoogle } from '../auth/google';
 import { Correo } from '../auth/correo';
 import {
+  Cuenta,
+  CuentaSchema,
   GastoDb,
   GastoSchema,
   IngresoExtraDb,
@@ -49,6 +51,7 @@ import { ComentariosService } from '../comentarios/comentarios.service';
       { name: MesGasto.name, schema: MesGastoSchema },
       { name: UsoReservaDb.name, schema: UsoReservaSchema },
       { name: IngresoExtraDb.name, schema: IngresoExtraSchema },
+      { name: Cuenta.name, schema: CuentaSchema },
       { name: Suscripcion.name, schema: SuscripcionSchema },
       { name: UsoIa.name, schema: UsoIaSchema },
       { name: Bolsillo.name, schema: BolsilloSchema },

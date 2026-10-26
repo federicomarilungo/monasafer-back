@@ -682,6 +682,57 @@ describe('API de Monasafer', () => {
     expect(await modelo.countDocuments({ email: 'ideas@test.com' })).toBe(0);
   });
 
+  it('cuentas: el saldo repartido, ingresos a una cuenta y traspasos', async () => {
+    const { auth } = await cuenta('cuentas@test.com');
+    await http.patch('/perfil').set(auth).send({ saldo: USD(1000) }).expect(200);
+    await http.post('/cuentas').set(auth).send({ nombre: 'X', moneda: 'XYZ' }).expect(400);
+    const mp = (
+      await http.post('/cuentas').set(auth).send({ nombre: 'Mercado Pago', emoji: '💙', moneda: 'USD', saldo: USD(50) }).expect(201)
+    ).body;
+    const pesos = (
+      await http.post('/cuentas').set(auth).send({ nombre: 'Pesos', moneda: 'ARS' }).expect(201)
+    ).body;
+    expect(pesos).toMatchObject({ nombre: 'Pesos', moneda: 'ARS', saldo: 0 });
+
+    // Misma moneda: la cantidad es el monto. Otra moneda: hace falta la cantidad.
+    await http.post('/ingresos').set(auth).send({ monto: USD(20), cuentaId: mp.id }).expect(201);
+    await http.post('/ingresos').set(auth).send({ monto: USD(10), cuentaId: pesos.id }).expect(400);
+    const changa = (
+      await http.post('/ingresos').set(auth).send({ monto: USD(10), cuentaId: pesos.id, cantidad: 1500000 }).expect(201)
+    ).body;
+    expect(changa.ingreso).toMatchObject({ cuentaId: pesos.id, cantidad: 1500000, monto: USD(10) });
+    expect(changa.perfil.saldo).toBe(USD(1000)); // la principal no cambia
+
+    let datos = (await http.get('/datos').set(auth).expect(200)).body;
+    expect(datos.cuentas.map((c: { saldo: number }) => c.saldo)).toEqual([USD(70), 1500000]);
+    expect(datos.ingresosExtra).toHaveLength(2);
+
+    // Deshacer resta de la cuenta donde entró
+    await http.delete(`/ingresos/${changa.ingreso.id}`).set(auth).expect(200);
+    expect((await http.get('/cuentas').set(auth)).body[1].saldo).toBe(0);
+
+    // Traspasos: a la principal, y entre monedas con lo que llegó
+    await http.post('/cuentas/traspasar').set(auth).send({ desde: mp.id, hacia: 'principal', monto: USD(30) }).expect(200);
+    await http.post('/cuentas/traspasar').set(auth).send({ desde: 'principal', hacia: pesos.id, monto: USD(100) }).expect(400);
+    await http.post('/cuentas/traspasar').set(auth).send({ desde: 'principal', hacia: pesos.id, monto: USD(100), montoEntra: 15000000 }).expect(200);
+    datos = (await http.get('/datos').set(auth)).body;
+    expect(datos.perfil.saldo).toBe(USD(930));
+    expect(datos.cuentas.map((c: { saldo: number }) => c.saldo)).toEqual([USD(40), 15000000]);
+
+    // Solo se borra vacía
+    await http.delete(`/cuentas/${mp.id}`).set(auth).expect(409);
+    await http.patch(`/cuentas/${mp.id}`).set(auth).send({ saldo: 0, nombre: 'MP' }).expect(200);
+    await http.delete(`/cuentas/${mp.id}`).set(auth).expect(200);
+    expect((await http.get('/cuentas').set(auth)).body).toHaveLength(1);
+
+    // Y nadie más las ve
+    const otro = await cuenta('otro-cuentas@test.com');
+    expect((await http.get('/cuentas').set(otro.auth)).body).toHaveLength(0);
+    await http.patch(`/cuentas/${pesos.id}`).set(otro.auth).send({ saldo: 1 }).expect(404);
+    await http.post('/ingresos').set(otro.auth).send({ monto: 1, cuentaId: pesos.id, cantidad: 1 }).expect(404);
+    await http.post('/cuentas/traspasar').set(otro.auth).send({ desde: pesos.id, hacia: 'principal', monto: 1, montoEntra: 1 }).expect(404);
+  });
+
   it('un usuario no puede ver ni tocar lo de otro', async () => {
     const a = await cuenta('a@test.com');
     const b = await cuenta('b@test.com');

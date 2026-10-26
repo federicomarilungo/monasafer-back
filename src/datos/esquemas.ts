@@ -45,6 +45,8 @@ export class Usuario {
   @Prop({ type: SchemaFactory.createForClass(IngresoMensual), default: null })
   ingresoMensual: IngresoMensual | null;
   @Prop({ type: String, default: null }) ingresoCobradoMes: string | null;
+  /** Cómo se llama la cuenta principal cuando hay otras (default "Cuenta principal"). */
+  @Prop({ default: '' }) nombreCuentaPrincipal: string;
 }
 export type UsuarioDoc = HydratedDocument<Usuario>;
 export const UsuarioSchema = SchemaFactory.createForClass(Usuario);
@@ -112,8 +114,30 @@ export class IngresoExtraDb {
   @Prop({ required: true }) mes: string;
   @Prop({ required: true }) monto: number;
   @Prop({ default: '' }) detalle: string;
+  /** A qué cuenta entró (null: la principal, que es `Usuario.saldo`). */
+  @Prop({ type: Types.ObjectId, default: null }) cuentaId: Types.ObjectId | null;
+  /** Lo que entró en la moneda de esa cuenta; `monto` es lo mismo en la moneda de la persona. */
+  @Prop({ type: Number, default: null }) cantidad: number | null;
 }
 export const IngresoExtraSchema = SchemaFactory.createForClass(IngresoExtraDb);
+
+/**
+ * Otra cuenta donde está parte del saldo (Mercado Pago, efectivo, dólares). La principal
+ * no es una de estas: es `Usuario.saldo`, así quien no usa cuentas no ve nada distinto.
+ * El saldo que mira el motor es la principal más estas, pasadas a la moneda de la persona.
+ */
+@Schema({ collection: 'cuentas', timestamps: true })
+export class Cuenta {
+  @Prop({ type: Types.ObjectId, required: true, index: true })
+  usuarioId: Types.ObjectId;
+  @Prop({ required: true, trim: true }) nombre: string;
+  @Prop({ default: '' }) emoji: string;
+  @Prop({ required: true, enum: MONEDAS }) moneda: string;
+  /** Centavos de `moneda`. */
+  @Prop({ default: 0 }) saldo: number;
+  @Prop({ default: false }) archivada: boolean;
+}
+export const CuentaSchema = SchemaFactory.createForClass(Cuenta);
 
 /** Suscripción premium pagada por la web (S8). Una por cada intento de suscribirse. */
 @Schema({ collection: 'suscripciones', timestamps: true })

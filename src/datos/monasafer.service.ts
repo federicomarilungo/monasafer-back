@@ -14,7 +14,7 @@ import { googleClientId, VerificadorGoogle } from '../auth/google';
 import { Sesiones } from '../auth/usuario.guard';
 import { Correo, emailRecupero, urlApp } from '../auth/correo';
 import crypto from 'crypto';
-import { GastoDb, IngresoExtraDb, MesGasto, UsoReservaDb, Usuario } from './esquemas';
+import { Cuenta, GastoDb, IngresoExtraDb, MesGasto, UsoReservaDb, Usuario } from './esquemas';
 import { GastoEntrada } from './validar';
 
 const MESES_MAXIMOS = 24;
@@ -36,6 +36,7 @@ export class MonasaferService implements Sesiones {
     @InjectModel(UsoReservaDb.name) private readonly usos: Model<UsoReservaDb>,
     @InjectModel(IngresoExtraDb.name)
     private readonly ingresos: Model<IngresoExtraDb>,
+    @InjectModel(Cuenta.name) private readonly cuentas: Model<Cuenta>,
     private readonly tokens: Tokens,
     private readonly google: VerificadorGoogle,
     private readonly correo: Correo,
@@ -174,6 +175,7 @@ export class MonasaferService implements Sesiones {
       this.meses.deleteMany({ usuarioId: u._id }),
       this.usos.deleteMany({ usuarioId: u._id }),
       this.ingresos.deleteMany({ usuarioId: u._id }),
+      this.cuentas.deleteMany({ usuarioId: u._id }),
     ]);
     await this.usuarios.deleteOne({ _id: u._id });
     this.cacheSesiones.delete(u.id);
@@ -206,7 +208,13 @@ export class MonasaferService implements Sesiones {
     cambios: Partial<
       Pick<
         Usuario,
-        'nombre' | 'moneda' | 'monedaCajon' | 'idioma' | 'saldo' | 'ingresoMensual'
+        | 'nombre'
+        | 'moneda'
+        | 'monedaCajon'
+        | 'idioma'
+        | 'saldo'
+        | 'ingresoMensual'
+        | 'nombreCuentaPrincipal'
       >
     >,
   ) {
@@ -240,23 +248,37 @@ export class MonasaferService implements Sesiones {
   /**
    * Plata que entró en cualquier momento del mes, aparte del ingreso mensual (un trabajo
    * extra, un reintegro, un regalo): se suma al saldo y queda anotada para poder deshacerla.
+   * Con `cuentaId` entra a esa cuenta: `cantidad` en su moneda y `monto` lo mismo en la
+   * moneda de la persona (lo pasa el front con la cotización del día, como en el cajón).
    */
-  async agregarIngreso(usuarioId: string, monto: number, detalle: string) {
+  async agregarIngreso(
+    usuarioId: string,
+    monto: number,
+    detalle: string,
+    cuentaId: string | null = null,
+    cantidad: number | null = null,
+  ) {
     if (monto <= 0) throw new BadRequestException('monto tiene que ser mayor a 0');
     const u = await this.usuario(usuarioId);
+    let cuenta: (Cuenta & { _id: Types.ObjectId }) | null = null;
+    if (cuentaId) {
+      cuenta = await this.cuentaDe(usuarioId, cuentaId);
+      if (cuenta.moneda === u.moneda) cantidad = monto;
+      if (!cantidad || cantidad <= 0)
+        throw new BadRequestException('cantidad: lo que entró en la moneda de la cuenta');
+    } else cantidad = null;
     const i = await this.ingresos.create({
       usuarioId: u._id,
       mes: mesDe(this.hoy()),
       monto,
       detalle,
+      cuentaId: cuenta?._id ?? null,
+      cantidad,
     });
-    const r = await this.usuarios.findByIdAndUpdate(
-      u._id,
-      { $inc: { saldo: monto } },
-      { new: true },
-    );
-    if (!r) throw new UnauthorizedException();
-    return { ingreso: this.ingresoPublico(i), perfil: this.perfilPublico(r) };
+    if (cuenta)
+      await this.cuentas.updateOne({ _id: cuenta._id }, { $inc: { saldo: cantidad } });
+    else await this.usuarios.updateOne({ _id: u._id }, { $inc: { saldo: monto } });
+    return { ingreso: this.ingresoPublico(i), perfil: await this.perfil(usuarioId) };
   }
 
   async listarIngresos(usuarioId: string, mes: string) {
@@ -267,20 +289,24 @@ export class MonasaferService implements Sesiones {
     return lista.map((i) => this.ingresoPublico(i));
   }
 
-  /** Borra un ingreso extra y se lo resta al saldo (el "Deshacer" o un error de carga). */
+  /** Borra un ingreso extra y se lo resta a la cuenta donde entró (el "Deshacer"). */
   async borrarIngreso(usuarioId: string, ingresoId: string) {
     const i = await this.ingresos.findOneAndDelete({
       _id: oid(ingresoId),
       usuarioId: oid(usuarioId),
     });
     if (!i) throw new NotFoundException();
-    const r = await this.usuarios.findByIdAndUpdate(
-      i.usuarioId,
-      { $inc: { saldo: -i.monto } },
-      { new: true },
-    );
-    if (!r) throw new UnauthorizedException();
-    return { ok: true, perfil: this.perfilPublico(r) };
+    if (i.cuentaId)
+      await this.cuentas.updateOne(
+        { _id: i.cuentaId },
+        { $inc: { saldo: -(i.cantidad ?? i.monto) } },
+      );
+    else
+      await this.usuarios.updateOne(
+        { _id: i.usuarioId },
+        { $inc: { saldo: -i.monto } },
+      );
+    return { ok: true, perfil: await this.perfil(usuarioId) };
   }
 
   private ingresoPublico(i: {
@@ -288,6 +314,8 @@ export class MonasaferService implements Sesiones {
     mes: string;
     monto: number;
     detalle?: string;
+    cuentaId?: Types.ObjectId | null;
+    cantidad?: number | null;
     createdAt?: Date;
   }) {
     return {
@@ -295,7 +323,102 @@ export class MonasaferService implements Sesiones {
       mes: i.mes,
       monto: i.monto,
       detalle: i.detalle ?? '',
+      cuentaId: i.cuentaId ? String(i.cuentaId) : null,
+      cantidad: i.cantidad ?? null,
       creado: i.createdAt ?? null,
+    };
+  }
+
+  // ---- Cuentas (el saldo repartido) ----
+
+  async listarCuentas(usuarioId: string) {
+    const lista = await this.cuentas
+      .find({ usuarioId: oid(usuarioId), archivada: false })
+      .sort({ createdAt: 1 })
+      .lean();
+    return lista.map((c) => this.cuentaPublica(c));
+  }
+
+  async crearCuenta(
+    usuarioId: string,
+    c: { nombre: string; emoji: string; moneda: string; saldo: number },
+  ) {
+    const u = await this.usuario(usuarioId);
+    if ((await this.cuentas.countDocuments({ usuarioId: u._id, archivada: false })) >= 20)
+      throw new BadRequestException('Hasta 20 cuentas');
+    const creada = await this.cuentas.create({ ...c, usuarioId: u._id });
+    return this.cuentaPublica(creada.toObject());
+  }
+
+  /** Cambia nombre, emoji o el saldo (corregirlo, como el saldo de la principal). */
+  async editarCuenta(
+    usuarioId: string,
+    cuentaId: string,
+    cambios: Partial<{ nombre: string; emoji: string; saldo: number }>,
+  ) {
+    const c = await this.cuentas.findOneAndUpdate(
+      { _id: oid(cuentaId), usuarioId: oid(usuarioId), archivada: false },
+      { $set: cambios },
+      { new: true },
+    );
+    if (!c) throw new NotFoundException();
+    return this.cuentaPublica(c.toObject());
+  }
+
+  /** Solo vacía: si tiene plata, primero se pasa a otra cuenta (o se corrige a 0). */
+  async archivarCuenta(usuarioId: string, cuentaId: string) {
+    const c = await this.cuentaDe(usuarioId, cuentaId);
+    if (c.saldo !== 0)
+      throw new ConflictException('Pasá la plata a otra cuenta antes de borrarla');
+    await this.cuentas.updateOne({ _id: c._id }, { $set: { archivada: true } });
+    return { ok: true };
+  }
+
+  /**
+   * Pasa plata de una cuenta a otra ('principal' es `Usuario.saldo`). Entre monedas
+   * distintas, `montoEntra` es lo que llegó (vendiste dólares a tal precio).
+   */
+  async traspasar(
+    usuarioId: string,
+    desde: string,
+    hacia: string,
+    monto: number,
+    montoEntra: number | null,
+  ) {
+    if (desde === hacia) throw new BadRequestException('Elegí dos cuentas distintas');
+    if (monto <= 0) throw new BadRequestException('monto tiene que ser mayor a 0');
+    const u = await this.usuario(usuarioId);
+    const de = desde === 'principal' ? null : await this.cuentaDe(usuarioId, desde);
+    const a = hacia === 'principal' ? null : await this.cuentaDe(usuarioId, hacia);
+    const monedaDe = de?.moneda ?? u.moneda;
+    const monedaA = a?.moneda ?? u.moneda;
+    const entra = monedaDe === monedaA ? monto : montoEntra;
+    if (!entra || entra <= 0)
+      throw new BadRequestException('montoEntra: lo que llegó en la otra moneda');
+    const mover = (c: typeof de, delta: number) =>
+      c
+        ? this.cuentas.updateOne({ _id: c._id }, { $inc: { saldo: delta } })
+        : this.usuarios.updateOne({ _id: u._id }, { $inc: { saldo: delta } });
+    await mover(de, -monto);
+    await mover(a, entra);
+    return { ok: true };
+  }
+
+  private async cuentaDe(usuarioId: string, cuentaId: string) {
+    const c = await this.cuentas
+      .findOne({ _id: oid(cuentaId), usuarioId: oid(usuarioId), archivada: false })
+      .lean();
+    if (!c) throw new NotFoundException();
+    return c;
+  }
+
+  private cuentaPublica(c: Cuenta & { _id: Types.ObjectId }) {
+    return {
+      id: String(c._id),
+      nombre: c.nombre,
+      emoji: c.emoji ?? '',
+      moneda: c.moneda,
+      saldo: c.saldo,
     };
   }
 
@@ -617,6 +740,7 @@ export class MonasaferService implements Sesiones {
       google: !!u.googleSub,
       moneda: u.moneda,
       monedaCajon: u.monedaCajon ?? u.moneda,
+      nombreCuentaPrincipal: u.nombreCuentaPrincipal ?? '',
       idioma: u.idioma ?? 'es',
       premium: {
         activo: !!u.premiumHasta && u.premiumHasta.getTime() > Date.now(),

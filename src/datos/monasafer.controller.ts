@@ -145,6 +145,8 @@ export class MonasaferController {
       cambios.idioma = b.idioma as string;
     }
     if (b.saldo !== undefined) cambios.saldo = v.saldo(b.saldo);
+    if (b.nombreCuentaPrincipal !== undefined)
+      cambios.nombreCuentaPrincipal = v.texto(b.nombreCuentaPrincipal, 'nombreCuentaPrincipal', 40, false);
     if (b.ingresoMensual !== undefined) {
       if (b.ingresoMensual === null) cambios.ingresoMensual = null;
       else {
@@ -171,6 +173,54 @@ export class MonasaferController {
       u,
       v.monto(b.monto),
       v.texto(b.detalle, 'detalle', 120, false),
+      b.cuentaId ? v.texto(b.cuentaId, 'cuentaId', 40) : null,
+      b.cantidad == null ? null : v.monto(b.cantidad, 'cantidad'),
+    );
+  }
+
+  @Get('cuentas')
+  cuentas(@UsuarioId() u: string) {
+    return this.s.listarCuentas(u);
+  }
+
+  @Post('cuentas')
+  crearCuenta(@UsuarioId() u: string, @Body() body: unknown) {
+    const b = v.objeto(body);
+    if (!MONEDAS.includes(b.moneda as string))
+      throw new BadRequestException(`moneda: ${MONEDAS.join(', ')}`);
+    return this.s.crearCuenta(u, {
+      nombre: v.texto(b.nombre, 'nombre', 40),
+      emoji: v.texto(b.emoji, 'emoji', 16, false),
+      moneda: b.moneda as string,
+      saldo: b.saldo === undefined ? 0 : v.saldo(b.saldo),
+    });
+  }
+
+  @Patch('cuentas/:id')
+  editarCuenta(@UsuarioId() u: string, @Param('id') id: string, @Body() body: unknown) {
+    const b = v.objeto(body);
+    const cambios: Partial<{ nombre: string; emoji: string; saldo: number }> = {};
+    if (b.nombre !== undefined) cambios.nombre = v.texto(b.nombre, 'nombre', 40);
+    if (b.emoji !== undefined) cambios.emoji = v.texto(b.emoji, 'emoji', 16, false);
+    if (b.saldo !== undefined) cambios.saldo = v.saldo(b.saldo);
+    return this.s.editarCuenta(u, id, cambios);
+  }
+
+  @Delete('cuentas/:id')
+  borrarCuentaDeSaldo(@UsuarioId() u: string, @Param('id') id: string) {
+    return this.s.archivarCuenta(u, id);
+  }
+
+  @Post('cuentas/traspasar')
+  @HttpCode(200)
+  traspasar(@UsuarioId() u: string, @Body() body: unknown) {
+    const b = v.objeto(body);
+    return this.s.traspasar(
+      u,
+      v.texto(b.desde, 'desde', 40),
+      v.texto(b.hacia, 'hacia', 40),
+      v.monto(b.monto),
+      b.montoEntra == null ? null : v.monto(b.montoEntra, 'montoEntra'),
     );
   }
 
@@ -279,14 +329,18 @@ export class MonasaferController {
     return this.s.borrarUso(u, id);
   }
 
-  /** Con lo ahorrado al cajón este mes, para partir el balance (motor/ahorro.ts). */
+  /**
+   * Con lo ahorrado al cajón este mes, para partir el balance (motor/ahorro.ts), y las
+   * otras cuentas del saldo: el front las suma a `perfil.saldo` con la cotización del día.
+   */
   @Get('datos')
   async datos(@UsuarioId() u: string) {
-    const [datos, ahorros] = await Promise.all([
+    const [datos, ahorros, cuentas] = await Promise.all([
       this.s.datos(u),
       this.cajon.ahorrosDesde(u, mesDe(this.s.hoy())),
+      this.s.listarCuentas(u),
     ]);
-    return { ...datos, ahorros };
+    return { ...datos, ahorros, cuentas };
   }
 
   @Get('historial')
