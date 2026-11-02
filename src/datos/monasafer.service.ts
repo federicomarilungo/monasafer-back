@@ -366,11 +366,12 @@ export class MonasaferService implements Sesiones {
     return this.cuentaPublica(c.toObject());
   }
 
-  /** Solo vacía: si tiene plata, primero se pasa a otra cuenta (o se corrige a 0). */
+  /**
+   * Se borra aunque tenga plata (Fede, 2/11): esa plata deja de contar en el saldo. El front
+   * pide confirmar antes.
+   */
   async archivarCuenta(usuarioId: string, cuentaId: string) {
     const c = await this.cuentaDe(usuarioId, cuentaId);
-    if (c.saldo !== 0)
-      throw new ConflictException('Pasá la plata a otra cuenta antes de borrarla');
     await this.cuentas.updateOne({ _id: c._id }, { $set: { archivada: true } });
     return { ok: true };
   }

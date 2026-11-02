@@ -747,9 +747,7 @@ describe('API de Monasafer', () => {
     expect(datos.perfil.saldo).toBe(USD(930));
     expect(datos.cuentas.map((c: { saldo: number }) => c.saldo)).toEqual([USD(40), 15000000]);
 
-    // Solo se borra vacía
-    await http.delete(`/cuentas/${mp.id}`).set(auth).expect(409);
-    await http.patch(`/cuentas/${mp.id}`).set(auth).send({ saldo: 0, nombre: 'MP' }).expect(200);
+    // Se borra aunque tenga plata: deja de contar
     await http.delete(`/cuentas/${mp.id}`).set(auth).expect(200);
     expect((await http.get('/cuentas').set(auth)).body).toHaveLength(1);
 
