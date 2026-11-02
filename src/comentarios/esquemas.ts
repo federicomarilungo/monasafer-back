@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Types } from 'mongoose';
 
-export const TIPOS_COMENTARIO = ['idea', 'error', 'otro'];
+export const TIPOS_COMENTARIO = ['idea', 'error', 'otro', 'pedido'];
 
 /**
  * Lo que la gente propone para mejorar la app. Se guarda una copia del email y el nombre

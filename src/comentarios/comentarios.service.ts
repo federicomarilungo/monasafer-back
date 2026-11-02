@@ -12,12 +12,14 @@ const ETIQUETA: Record<string, string> = {
   idea: '💡 Idea',
   error: '🐛 Algo no anda',
   otro: '💬 Comentario',
+  pedido: '🙋 Pedido para inversiones',
 };
 
 @Injectable()
 export class ComentariosService {
   constructor(
-    @InjectModel(Comentario.name) private readonly comentarios: Model<Comentario>,
+    @InjectModel(Comentario.name)
+    private readonly comentarios: Model<Comentario>,
     @InjectModel(Usuario.name) private readonly usuarios: Model<Usuario>,
     private readonly correo: Correo,
   ) {}
@@ -52,6 +54,8 @@ export class ComentariosService {
   }
 
   async borrarDatos(usuarioId: string) {
-    await this.comentarios.deleteMany({ usuarioId: new Types.ObjectId(usuarioId) });
+    await this.comentarios.deleteMany({
+      usuarioId: new Types.ObjectId(usuarioId),
+    });
   }
 }

@@ -6,7 +6,7 @@ import { AppModule } from '../app.module';
 import { MonasaferService } from '../datos/monasafer.service';
 import { CajonService } from './cajon.service';
 import { FuenteCotizaciones } from './cotizaciones';
-import { leerCedears } from './cedears';
+import { leerCedears, leerPrecios } from './mercados';
 
 // El cajón de bananas contra un Mongo en memoria. Hoy = 15/10/2026.
 jest.setTimeout(60000);
@@ -594,5 +594,122 @@ describe('Cajón de bananas', () => {
       .send({ cantidad: 0, detalle: 'Vendí' })
       .expect(201);
     await http.delete(`/cajon/bolsillos/${spy.id}`).set(auth).expect(200);
+  });
+
+  it('acciones de BYMA y de EE.UU.: precios por mercado, en su moneda', async () => {
+    const filasUsa = [
+      { symbol: 'AAPL', c: 338.41 },
+      { symbol: 'BRK.B', c: 555.89 },
+      ...Array.from({ length: 250 }, (_, i) => ({ symbol: `U${i}`, c: 10 })),
+    ];
+    const filasByma = [
+      { symbol: 'GGAL', c: 6100 },
+      { symbol: 'GGALD', c: 4.2 },
+      ...Array.from({ length: 30 }, (_, i) => ({ symbol: `B${i}`, c: 100 })),
+    ];
+    expect(leerPrecios(filasByma).GGALD).toBeUndefined();
+    const fetchFalso = jest
+      .spyOn(global, 'fetch')
+      .mockImplementation(
+        (async (url: string) =>
+          new Response(
+            JSON.stringify(
+              url.includes('usa_stocks')
+                ? filasUsa
+                : url.includes('usa_adrs')
+                  ? [{ symbol: 'YPF', c: 43.76 }]
+                  : filasByma,
+            ),
+            { status: 200 },
+          )) as typeof fetch,
+      );
+    try {
+      const usa = (
+        await http
+          .get('/cajon/precios?mercado=usa&simbolos=aapl,BRK.B,YPF,NOEXISTE')
+          .expect(200)
+      ).body;
+      expect(usa).toMatchObject({
+        moneda: 'USD',
+        precios: { AAPL: 33841, 'BRK.B': 55589, YPF: 4376 },
+      });
+      const byma = (
+        await http
+          .get('/cajon/precios?mercado=byma&simbolos=GGAL,GGALD')
+          .expect(200)
+      ).body;
+      expect(byma).toMatchObject({ moneda: 'ARS', precios: { GGAL: 610000 } });
+      expect(byma.precios.GGALD).toBeUndefined();
+      await http.get('/cajon/precios?mercado=nasdaq&simbolos=AAPL').expect(400);
+    } finally {
+      fetchFalso.mockRestore();
+    }
+  });
+
+  it('cripto como inversión: gratis, con 8 decimales; acciones, premium', async () => {
+    const btc = (
+      await http
+        .post('/cajon/bolsillos')
+        .set(auth)
+        .send({
+          nombre: 'Bitcoin',
+          emoji: '₿',
+          unidad: 'btc',
+          mercado: 'cripto',
+        })
+        .expect(201)
+    ).body;
+    expect(btc).toMatchObject({
+      unidad: 'BTC',
+      decimales: 8,
+      mercado: 'cripto',
+    });
+    await http
+      .post('/cajon/bolsillos')
+      .set(auth)
+      .send({ nombre: 'BTC', unidad: 'BTC', mercado: 'cripto' })
+      .expect(409);
+    const accion = {
+      nombre: 'Galicia',
+      emoji: '📈',
+      unidad: 'GGAL',
+      mercado: 'byma',
+    };
+    await http.post('/cajon/bolsillos').set(auth).send(accion).expect(403);
+    await http
+      .post('/cajon/bolsillos')
+      .set(auth)
+      .send({ ...accion, mercado: 'merval' })
+      .expect(400);
+    await http
+      .post('/premium/prueba')
+      .set(auth)
+      .send({ activo: true })
+      .expect(200);
+    const ggal = (
+      await http.post('/cajon/bolsillos').set(auth).send(accion).expect(201)
+    ).body;
+    expect(ggal).toMatchObject({ decimales: 0, mercado: 'byma' });
+    // El mismo ticker en otro mercado es otra inversión (GGAL en BYMA y el ADR en EE.UU.).
+    const adr = (
+      await http
+        .post('/cajon/bolsillos')
+        .set(auth)
+        .send({ ...accion, mercado: 'usa' })
+        .expect(201)
+    ).body;
+    expect(adr).toMatchObject({ decimales: 4, mercado: 'usa' });
+    await http
+      .patch(`/cajon/bolsillos/${adr.id}`)
+      .set(auth)
+      .send({ decimales: 2 })
+      .expect(400);
+    await http
+      .post('/premium/prueba')
+      .set(auth)
+      .send({ activo: false })
+      .expect(200);
+    for (const b of [btc, ggal, adr])
+      await http.delete(`/cajon/bolsillos/${b.id}`).set(auth).expect(200);
   });
 });

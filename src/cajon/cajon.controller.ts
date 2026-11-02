@@ -14,7 +14,8 @@ import { UsuarioId } from '../auth/usuario.guard';
 import { Public } from '../auth/public.decorator';
 import { ServiceUnavailableException } from '@nestjs/common';
 import { FuenteCotizaciones } from './cotizaciones';
-import { FuenteCedears } from './cedears';
+import { FuenteMercados, MERCADOS, Mercado } from './mercados';
+import { MERCADOS_BOLSILLO, MercadoBolsillo } from './esquemas';
 import * as v from '../datos/validar';
 import { MONEDAS } from '../datos/esquemas';
 import { CajonService } from './cajon.service';
@@ -45,6 +46,17 @@ function cotizacion(x: unknown): { moneda: string; valor: number } | null {
   };
 }
 
+/**
+ * En qué se cuenta cada inversión: CEDEARs y acciones argentinas van enteros; en EE.UU. los
+ * brokers venden fracciones (hasta 4 decimales); las cripto, 8 como el BTC.
+ */
+const DECIMALES_MERCADO: Record<MercadoBolsillo, number> = {
+  cedear: 0,
+  byma: 0,
+  usa: 4,
+  cripto: 8,
+};
+
 function origen(x: unknown): 'mes' | 'acumulado' {
   if (x !== 'mes' && x !== 'acumulado')
     throw new BadRequestException('origen: mes o acumulado');
@@ -56,7 +68,7 @@ export class CajonController {
   constructor(
     private readonly s: CajonService,
     private readonly cotizaciones: FuenteCotizaciones,
-    private readonly cedears: FuenteCedears,
+    private readonly mercados: FuenteMercados,
   ) {}
 
   /** Público a propósito: son cotizaciones de mercado (las usa también la demo). */
@@ -74,7 +86,22 @@ export class CajonController {
    */
   @Public()
   @Get('cedears')
-  async preciosCedears(@Query('simbolos') simbolos?: string) {
+  preciosCedears(@Query('simbolos') simbolos?: string) {
+    return this.precios('cedear', simbolos);
+  }
+
+  /**
+   * Lo mismo para cualquier mercado de acciones: `?mercado=cedear|byma|usa&simbolos=`.
+   * `moneda` dice en qué vienen los centavos (ARS o USD).
+   */
+  @Public()
+  @Get('precios')
+  async precios(
+    @Query('mercado') mercado?: string,
+    @Query('simbolos') simbolos?: string,
+  ) {
+    if (!MERCADOS.includes(mercado as Mercado))
+      throw new BadRequestException(`mercado: ${MERCADOS.join(', ')}`);
     const pedidos = String(simbolos ?? '')
       .toUpperCase()
       .split(',')
@@ -82,7 +109,7 @@ export class CajonController {
       .filter(Boolean);
     if (!pedidos.length || pedidos.length > 60)
       throw new BadRequestException('simbolos: de 1 a 60, separados por coma');
-    const c = await this.cedears.obtener();
+    const c = await this.mercados.obtener(mercado as Mercado);
     if (!c) throw new ServiceUnavailableException('Sin precios por ahora');
     const precios: Record<string, number> = {};
     for (const s of pedidos) if (c.precios[s]) precios[s] = c.precios[s];
@@ -97,20 +124,24 @@ export class CajonController {
   @Post('bolsillos')
   crearBolsillo(@UsuarioId() u: string, @Body() body: unknown) {
     const b = v.objeto(body);
-    if (b.mercado === 'cedear') {
+    if (b.mercado != null) {
+      const mercado = b.mercado as MercadoBolsillo;
+      if (!MERCADOS_BOLSILLO.includes(mercado))
+        throw new BadRequestException(
+          `mercado: ${MERCADOS_BOLSILLO.join(', ')}`,
+        );
       const ticker = typeof b.unidad === 'string' ? b.unidad.toUpperCase() : '';
       if (!/^[A-Z0-9.]{1,10}$/.test(ticker))
-        throw new BadRequestException('unidad: el ticker del CEDEAR (SPY)');
+        throw new BadRequestException('unidad: el ticker o símbolo (SPY, BTC)');
       return this.s.crearBolsillo(u, {
         nombre: v.texto(b.nombre, 'nombre', 40),
         emoji: v.texto(b.emoji, 'emoji', 16, false),
         unidad: ticker,
-        decimales: 0,
+        decimales: DECIMALES_MERCADO[mercado],
         cotizacion: null,
-        mercado: 'cedear',
+        mercado,
       });
     }
-    if (b.mercado != null) throw new BadRequestException('mercado: cedear');
     const decimales = b.decimales === undefined ? 2 : Number(b.decimales);
     if (!Number.isInteger(decimales) || decimales < 0 || decimales > 8)
       throw new BadRequestException('decimales: 0 a 8');

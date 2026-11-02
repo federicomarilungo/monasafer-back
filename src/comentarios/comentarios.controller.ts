@@ -13,7 +13,7 @@ export class ComentariosController {
 
   private readonly limite = new Limitador();
 
-  /** `{tipo: idea|error|otro, texto, pantalla?}`: propuestas de mejora de quien usa la app. */
+  /** `{tipo: idea|error|otro|pedido, texto, pantalla?}`: propuestas de mejora de quien usa la app. `pedido`: una acción o cripto que falta en inversiones. */
   @Post()
   enviar(@UsuarioId() u: string, @Body() body: unknown) {
     const b = v.objeto(body);

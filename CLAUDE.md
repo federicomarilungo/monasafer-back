@@ -62,7 +62,7 @@ Sin `MONGO_URI` la API levanta solo con `GET /ping`, `GET /salud` y `POST /admin
 | `GET /meses/:mes`, `GET /proyeccion?hasta=AAAA-MM` | resumen con el motor (hasta 24 meses) |
 | `GET /historial?meses=N` | lo gastado en los N meses cerrados (1 a 12, default 3), con `historial()` del motor; los gastos borrados cuentan hasta el mes en que se borraron (`archivadoEn`). Las métricas normales piden 3, las premium 12 |
 | `GET /historial?mes=AAAA-MM` | un mes pasado para el calendario: lo gastado y `hayAntes` (algún gasto empezó antes). Hasta 3 meses atrás para todos; más atrás, solo premium (403) |
-| `POST /comentarios` | `{tipo: idea\|error\|otro, texto (hasta 2000), pantalla?}`: propuestas de mejora. Se guardan en `comentarios` (con copia de email y nombre, `estado: nuevo`) y avisan por Resend a `COMENTARIOS_PARA` (default admin@monasafer.com) con reply-to de la persona; sin Resend igual se guardan. 10 por día por persona. Se borran con la cuenta |
+| `POST /comentarios` | `{tipo: idea\|error\|otro\|pedido, texto (hasta 2000), pantalla?}`: propuestas de mejora. Se guardan en `comentarios` (con copia de email y nombre, `estado: nuevo`) y avisan por Resend a `COMENTARIOS_PARA` (default admin@monasafer.com) con reply-to de la persona; sin Resend igual se guardan. 10 por día por persona. Se borran con la cuenta |
 
 ## Cajón de bananas (K1)
 
@@ -86,11 +86,16 @@ manda sobre la de mercado al valuar el cajón (lo que no cotiza, o el valor prop
   (respaldo CoinGecko PAX Gold, onza troy) y ARS al dólar MEP de dolarapi. Caché de 1 h
   (`src/cajon/cotizaciones.ts`). La moneda base es `monedaCajon` del perfil (default: la de
   la cuenta); el front convierte (un bolsillo en `g` se valúa como oro).
-- Cartera de inversiones (premium, Fede 25/10): un bolsillo con `mercado: 'cedear'` es un
-  CEDEAR; la unidad es el ticker (`SPY`), sin decimales, uno por ticker. Crearlo pide
-  premium (403); lo ya cargado se sigue viendo si vence. `GET /cajon/cedears?simbolos=SPY,GOOGL`
-  (público) da centavos de peso por CEDEAR de data912.com (caché 20 min, sin las versiones
-  en dólares SPYD/SPYC, `src/cajon/cedears.ts`); el front lo pasa a la moneda base con el MEP.
+- Cartera de inversiones (Fede 25/10 y 02/11): un bolsillo con `mercado` es una inversión;
+  la unidad es el ticker o símbolo, uno por mercado y ticker, y no cambia. `cedear` (BYMA en
+  pesos, 0 decimales), `byma` (acciones argentinas en pesos, 0), `usa` (acciones y ADRs de
+  EE.UU. en dólares, 4 decimales) y `cripto` (8 decimales, se valúa con las cotizaciones).
+  Crear acciones o CEDEARs pide premium (403); las cripto son gratis (ya lo eran como
+  ahorro). Lo ya cargado se sigue viendo si vence. `GET /cajon/precios?mercado=&simbolos=`
+  (público) da `{moneda, precios}` en centavos de data912.com (caché 20 min, sin las
+  versiones en dólares de BYMA, `src/cajon/mercados.ts`); `GET /cajon/cedears` es el de
+  siempre. Las cripto comunes de Binance (`CRIPTO_BINANCE`) que no trae Coinbase salen de
+  la API pública de Binance. Lo que falta se pide con `POST /comentarios` `tipo: pedido`.
 `GET /datos` trae `ahorros` del mes para `partirBalance` (motor/ahorro.ts): balance del
 mes + acumulado de meses anteriores.
 

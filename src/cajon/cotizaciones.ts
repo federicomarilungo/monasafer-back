@@ -6,6 +6,8 @@ import { Injectable } from '@nestjs/common';
 // - Monedas y cripto: Coinbase; si falla, open.er-api (monedas) y CoinGecko (las cripto
 //   que ofrece el front).
 // - Oro (XAU, onza troy): gold-api.com; si falla, CoinGecko (PAX Gold, 1 onza).
+// - Las cripto más comunes de Binance (CRIPTO_BINANCE, Fede 02/11/2026) que no traiga
+//   Coinbase (TRX, por ejemplo) salen de la API pública de datos de Binance, en USDT.
 // - ARS: dólar MEP (dolarapi.com, venta), que es el que usa la gente para ahorrar.
 // Se cachea una hora; si todo falla se devuelve la última buena.
 
@@ -26,6 +28,37 @@ const CRIPTO_RESPALDO: Record<string, string> = {
   'usd-coin': 'USDC',
   solana: 'SOL',
 };
+
+/**
+ * Las cripto más comunes de Binance, que el front ofrece como inversión. Si Coinbase no
+ * trae alguna, se completa con Binance. Las que la gente pida de más llegan como pedido.
+ */
+export const CRIPTO_BINANCE = [
+  'BTC',
+  'ETH',
+  'BNB',
+  'SOL',
+  'XRP',
+  'DOGE',
+  'ADA',
+  'TRX',
+  'TON',
+  'AVAX',
+  'LINK',
+  'DOT',
+  'SHIB',
+  'LTC',
+  'BCH',
+  'POL',
+  'UNI',
+  'NEAR',
+  'ATOM',
+  'XLM',
+  'SUI',
+  'APT',
+  'PEPE',
+  'ARB',
+];
 
 async function json(url: string): Promise<unknown> {
   const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
@@ -63,6 +96,10 @@ export class FuenteCotizaciones {
     ]);
     if (general.status === 'fulfilled')
       for (const [k, v] of Object.entries(general.value)) anotar(k, v);
+    const faltan = CRIPTO_BINANCE.filter((c) => !porUsd[c]);
+    if (faltan.length)
+      for (const [k, v] of Object.entries(await this.binance(faltan)))
+        anotar(k, v);
     if (oro.status === 'fulfilled') anotar('XAU', 1 / oro.value);
     if (mep.status === 'fulfilled')
       anotar('ARS', (mep.value as { venta?: unknown }).venta);
@@ -97,6 +134,25 @@ export class FuenteCotizaciones {
         if (usd) cripto[codigo] = 1 / usd;
       }
       return { ...fiat.rates, ...cripto };
+    }
+  }
+
+  /** Unidades por 1 USD de las cripto pedidas, con el precio en USDT de Binance. */
+  private async binance(simbolos: string[]): Promise<Record<string, number>> {
+    try {
+      const pares = JSON.stringify(simbolos.map((s) => `${s}USDT`));
+      const filas = (await json(
+        `https://data-api.binance.vision/api/v3/ticker/price?symbols=${encodeURIComponent(pares)}`,
+      )) as { symbol?: string; price?: unknown }[];
+      const r: Record<string, number> = {};
+      for (const f of filas) {
+        const p = positivo(f.price);
+        if (p && f.symbol?.endsWith('USDT')) r[f.symbol.slice(0, -4)] = 1 / p;
+      }
+      return r;
+    } catch (e) {
+      console.error('[cotizaciones] Binance falló', e);
+      return {};
     }
   }
 

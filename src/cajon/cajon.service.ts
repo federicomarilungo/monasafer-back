@@ -10,7 +10,7 @@ import { Model, Types } from 'mongoose';
 import crypto from 'crypto';
 import { Ahorro, mesDe } from '../motor';
 import { Usuario } from '../datos/esquemas';
-import { Bolsillo, MovimientoCajon } from './esquemas';
+import { Bolsillo, MercadoBolsillo, MovimientoCajon } from './esquemas';
 
 function oid(id: string): Types.ObjectId {
   if (!Types.ObjectId.isValid(id)) throw new NotFoundException();
@@ -26,7 +26,7 @@ export interface NuevoBolsillo {
   unidad: string;
   decimales: number;
   cotizacion?: { moneda: string; valor: number } | null;
-  mercado?: 'cedear' | null;
+  mercado?: MercadoBolsillo | null;
 }
 
 @Injectable()
@@ -89,15 +89,18 @@ export class CajonService {
 
   async crearBolsillo(usuarioId: string, b: NuevoBolsillo) {
     const id = oid(usuarioId);
-    if (b.mercado === 'cedear') {
-      // La cartera de inversiones es premium (Fede, 25/10). Lo que ya se cargó se sigue
-      // viendo y editando si vence: solo se frena sumar CEDEARs nuevos.
-      const u = await this.usuarios.findById(id, { premiumHasta: 1 }).lean();
-      if (!u?.premiumHasta || u.premiumHasta.getTime() <= Date.now())
-        throw new ForbiddenException('La cartera de inversiones es Premium');
+    if (b.mercado) {
+      // Las acciones y los CEDEARs son premium (Fede, 25/10). Lo que ya se cargó se sigue
+      // viendo y editando si vence: solo se frena sumar nuevos. Las cripto, no: ya se
+      // podían guardar gratis en el cajón antes de que fueran inversiones.
+      if (b.mercado !== 'cripto') {
+        const u = await this.usuarios.findById(id, { premiumHasta: 1 }).lean();
+        if (!u?.premiumHasta || u.premiumHasta.getTime() <= Date.now())
+          throw new ForbiddenException('La cartera de inversiones es Premium');
+      }
       const ya = await this.bolsillos.findOne({
         usuarioId: id,
-        mercado: 'cedear',
+        mercado: b.mercado,
         unidad: b.unidad,
         archivado: false,
       });
@@ -135,10 +138,10 @@ export class CajonService {
       if (
         actual.mercado &&
         ((cambios.unidad ?? actual.unidad) !== actual.unidad ||
-          (cambios.decimales ?? 0) !== 0)
+          (cambios.decimales ?? actual.decimales) !== actual.decimales)
       )
         throw new BadRequestException(
-          'Un CEDEAR no cambia de ticker: creá otro',
+          'Una inversión no cambia de ticker: creá otra',
         );
       if (actual.generico)
         throw new BadRequestException(
