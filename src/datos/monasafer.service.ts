@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Datos, historial, mesDe, proyectar, resumenDelMes, sumarMeses } from '../motor';
+import { Datos, historial, mesDe, montoBase, proyectar, resumenDelMes, sumarMeses } from '../motor';
 import { hashClave, Tokens, verificarClave } from '../auth/tokens';
 import { googleClientId, VerificadorGoogle } from '../auth/google';
 import { Sesiones } from '../auth/usuario.guard';
@@ -435,11 +435,22 @@ export class MonasaferService implements Sesiones {
   }
 
   async crearGasto(usuarioId: string, g: Partial<GastoEntrada>) {
+    if (g.grupoId) await this.grupoDe(usuarioId, g.grupoId);
     const creado = await this.gastos.create({
       ...g,
+      grupoId: g.grupoId ? oid(g.grupoId) : null,
       usuarioId: oid(usuarioId),
     });
     return this.gastoPublico(creado.toObject());
+  }
+
+  /** El grupo (ej. la Visa) en el que se quiere cargar un gasto: tiene que ser de la persona. */
+  private async grupoDe(usuarioId: string, grupoId: string) {
+    const grupo = await this.gastos
+      .findOne({ _id: oid(grupoId), usuarioId: oid(usuarioId), archivado: false, tipo: 'grupo' })
+      .lean();
+    if (!grupo) throw new BadRequestException('grupoId: no es un grupo tuyo');
+    return grupo;
   }
 
   async editarGasto(
@@ -449,7 +460,23 @@ export class MonasaferService implements Sesiones {
   ) {
     // Pasar una reserva a "cargo cada uso" rige desde este mes: en el historial, los meses
     // anteriores siguen consumidos enteros (regla de Fede: editar no toca el pasado).
-    const set: Partial<GastoEntrada> & { manualDesde?: string | null } = { ...cambios };
+    const set: Record<string, unknown> = { ...cambios };
+    if (cambios.grupoId !== undefined || cambios.tipo) {
+      const antes = await this.gastoDe(usuarioId, gastoId);
+      const tipo = cambios.tipo ?? antes.tipo;
+      const grupoId = cambios.grupoId !== undefined ? cambios.grupoId : antes.grupoId;
+      if (grupoId && (tipo === 'grupo' || tipo === 'reserva'))
+        throw new BadRequestException('Un grupo o una reserva no van adentro de un grupo');
+      if (grupoId && String(grupoId) === gastoId)
+        throw new BadRequestException('Un gasto no va adentro de sí mismo');
+      if (cambios.grupoId) {
+        await this.grupoDe(usuarioId, cambios.grupoId);
+        set.grupoId = oid(cambios.grupoId);
+      }
+      // Un grupo que deja de serlo suelta sus gastos: siguen contando, sueltos.
+      if (antes.tipo === 'grupo' && tipo !== 'grupo')
+        await this.gastos.updateMany({ usuarioId: oid(usuarioId), grupoId: antes._id }, { $set: { grupoId: null } });
+    }
     if (cambios.modoReserva) {
       const antes = await this.gastoDe(usuarioId, gastoId);
       if (cambios.modoReserva === 'manual' && antes.modoReserva !== 'manual') {
@@ -472,11 +499,17 @@ export class MonasaferService implements Sesiones {
 
   /** Borrar = archivar: se deja de ver desde ya, el historial queda. */
   async archivarGasto(usuarioId: string, gastoId: string) {
+    const cuando = this.hoy();
     const r = await this.gastos.updateOne(
       { _id: oid(gastoId), usuarioId: oid(usuarioId) },
-      { $set: { archivado: true, archivadoEn: this.hoy() } },
+      { $set: { archivado: true, archivadoEn: cuando } },
     );
     if (!r.matchedCount) throw new NotFoundException();
+    // Borrar un grupo borra lo que tiene adentro (con la misma fecha, así Deshacer lo trae de vuelta).
+    await this.gastos.updateMany(
+      { usuarioId: oid(usuarioId), grupoId: oid(gastoId), archivado: false },
+      { $set: { archivado: true, archivadoEn: cuando } },
+    );
     return { ok: true };
   }
 
@@ -490,6 +523,11 @@ export class MonasaferService implements Sesiones {
       )
       .lean();
     if (!g) throw new NotFoundException();
+    if (g.tipo === 'grupo' && g.archivadoEn)
+      await this.gastos.updateMany(
+        { usuarioId: oid(usuarioId), grupoId: g._id, archivado: true, archivadoEn: g.archivadoEn },
+        { $set: { archivado: false } },
+      );
     return this.gastoPublico(g);
   }
 
@@ -524,7 +562,11 @@ export class MonasaferService implements Sesiones {
     return { ok: true };
   }
 
-  /** Marca pagado y descuenta del saldo: el balance no se mueve. */
+  /**
+   * Marca pagado y descuenta del saldo: el balance no se mueve. Un grupo descuenta lo que le
+   * falta (lo estimado o lo cargado, menos lo que ya se pagó de adentro) y cubre sus gastos;
+   * un gasto de un grupo ya pagado entero no se paga de nuevo.
+   */
   async pagar(usuarioId: string, gastoId: string, mes: string) {
     if (mes < mesDe(this.hoy()))
       throw new BadRequestException('No se pagan meses pasados');
@@ -533,7 +575,15 @@ export class MonasaferService implements Sesiones {
       throw new BadRequestException('Las reservas se usan cargando usos');
     const estado = await this.meses.findOne({ gastoId: g._id, mes }).lean();
     if (estado?.pagado) throw new ConflictException('Ya estaba pagado');
-    const monto = estado?.montoDelMes ?? g.monto;
+    if (g.grupoId) {
+      const grupo = await this.meses.findOne({ gastoId: g.grupoId, mes, pagado: true }).lean();
+      if (grupo) throw new ConflictException('Ya pagaste el grupo entero');
+    }
+    let monto = estado?.montoDelMes ?? montoBase(this.gastoPublico(g), mes);
+    if (g.tipo === 'grupo') {
+      const r = resumenDelMes(await this.datos(usuarioId), this.hoy(), mes);
+      monto = r?.gastos.find((l) => l.gastoId === gastoId)?.pendiente ?? 0;
+    }
     const r = await this.meses.updateOne(
       { gastoId: g._id, mes, pagado: { $ne: true } },
       {
@@ -554,6 +604,10 @@ export class MonasaferService implements Sesiones {
   /** Desmarca un pago y devuelve al saldo lo que se había descontado. */
   async despagar(usuarioId: string, gastoId: string, mes: string) {
     const g = await this.gastoDe(usuarioId, gastoId);
+    // Con el grupo pagado entero, lo que se pagó de adentro antes ya no está en lo que falta:
+    // desmarcarlo devolvería plata sin volver a restarla.
+    if (g.grupoId && (await this.meses.exists({ gastoId: g.grupoId, mes, pagado: true })))
+      throw new ConflictException('El grupo está pagado entero: desmarcá primero el grupo');
     const estado = await this.meses.findOneAndUpdate(
       { gastoId: g._id, mes, pagado: true },
       { $set: { pagado: false, pagadoEn: null, montoPagado: 0 } },
@@ -791,7 +845,8 @@ export class MonasaferService implements Sesiones {
       nombre: g.nombre,
       emoji: g.emoji,
       monto: g.monto,
-      tipo: g.tipo as 'puntual' | 'fijo' | 'reserva',
+      tipo: g.tipo as 'puntual' | 'fijo' | 'reserva' | 'grupo',
+      grupoId: g.grupoId ? String(g.grupoId) : null,
       mesInicio: g.mesInicio,
       mesFin: g.mesFin,
       modoReserva: (g.modoReserva ?? undefined) as

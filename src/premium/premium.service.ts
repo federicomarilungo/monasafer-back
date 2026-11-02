@@ -216,6 +216,7 @@ export class PremiumService {
         mesInicio: g.mesInicio,
         mesFin: g.mesFin,
         pagadoEsteMes: idsPagados.has(String(g._id)),
+        grupoId: g.grupoId ? String(g.grupoId) : null,
       }));
   }
 

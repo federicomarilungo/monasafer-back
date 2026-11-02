@@ -39,6 +39,8 @@ export interface GastoContexto {
   mesInicio: string;
   mesFin: string | null;
   pagadoEsteMes: boolean;
+  /** Grupo (ej. la Visa) en el que está cargado. */
+  grupoId?: string | null;
 }
 
 export type Propuesta =
@@ -63,7 +65,7 @@ export const HERRAMIENTAS: Anthropic.Tool[] = [
   {
     name: 'crear_gasto',
     description:
-      'Propone un gasto nuevo para que la persona lo confirme. Usala solo cuando tenés el monto. Para compras en cuotas: tipo "fijo", cantidad_meses = cuotas y monto_mensual = total / cuotas.',
+      'Propone un gasto nuevo para que la persona lo confirme. Usala solo cuando tenés el monto. Para compras en cuotas: tipo "fijo", cantidad_meses = cuotas y monto_mensual = total / cuotas. Para cargarlo adentro de un grupo de la lista (ej. "lo pagué con la Visa"), grupo_id = el id del grupo y mes_inicio = el mes de ese grupo en que se paga.',
     input_schema: {
       type: 'object',
       properties: {
@@ -72,8 +74,12 @@ export const HERRAMIENTAS: Anthropic.Tool[] = [
         monto_mensual: { type: 'number', description: 'Monto de cada mes en la moneda de la persona (no centavos)' },
         tipo: {
           type: 'string',
-          enum: ['puntual', 'fijo', 'reserva'],
-          description: 'puntual = una vez; fijo = se repite cada mes; reserva = presupuesto para ir gastando (súper, nafta)',
+          enum: ['puntual', 'fijo', 'reserva', 'grupo'],
+          description: 'puntual = una vez; fijo = se repite cada mes; reserva = presupuesto para ir gastando (súper, nafta); grupo = junta gastos adentro, como el resumen de una tarjeta (monto_mensual = lo que estima, 0 si no sabe)',
+        },
+        grupo_id: {
+          type: ['string', 'null'],
+          description: 'Id de un gasto de tipo grupo de la lista para cargarlo adentro (solo puntual o fijo); null = suelto',
         },
         mes_inicio: { type: 'string', description: 'AAAA-MM; por defecto el mes actual' },
         cantidad_meses: {
@@ -86,7 +92,7 @@ export const HERRAMIENTAS: Anthropic.Tool[] = [
           description: 'Solo reservas: proporcional se consume solo con los días; manual se baja cargando usos',
         },
       },
-      required: ['nombre', 'emoji', 'monto_mensual', 'tipo', 'mes_inicio', 'cantidad_meses', 'modo_reserva'],
+      required: ['nombre', 'emoji', 'monto_mensual', 'tipo', 'mes_inicio', 'cantidad_meses', 'modo_reserva', 'grupo_id'],
       additionalProperties: false,
     },
   },
@@ -259,7 +265,7 @@ export function promptSistema(p: {
     ? p.gastos
         .map(
           (g) =>
-            `- id=${g.id} | ${g.emoji} ${g.nombre} | ${g.tipo} | ${g.monto / 100} ${p.moneda} | desde ${g.mesInicio}${g.mesFin ? ` hasta ${g.mesFin}` : ''}${g.tipo !== 'reserva' ? (g.pagadoEsteMes ? ' | pagado este mes' : ' | sin pagar este mes') : ''}`,
+            `- id=${g.id} | ${g.emoji} ${g.nombre} | ${g.tipo}${g.tipo === 'grupo' ? ' (estimado)' : ''} | ${g.monto / 100} ${p.moneda} | desde ${g.mesInicio}${g.mesFin ? ` hasta ${g.mesFin}` : ''}${g.tipo !== 'reserva' ? (g.pagadoEsteMes ? ' | pagado este mes' : ' | sin pagar este mes') : ''}${g.grupoId ? ` | adentro del grupo id=${g.grupoId}` : ''}`,
         )
         .join('\n')
     : '(todavía no cargó gastos)';
@@ -272,6 +278,7 @@ Reglas:
 - Para tocar un gasto que ya existe, elegilo de la lista por su id (buscalo por nombre aunque lo escriban distinto). Si hay dudas entre dos, preguntá.
 - "Sacar" un gasto de un solo mes = borrar_gasto. Si se repite y quiere sacarlo solo de un mes = monto_del_mes con 0; desde un mes en adelante = terminar_gasto; del todo (también los meses pasados) = borrar_gasto.
 - Si dice "borrá" o "sacá" un gasto que se repite y ya empezó antes de este mes, sin aclarar, lo más probable es que lo quiera terminar: terminar_gasto con ultimo_mes = el mes anterior (o este, si este mes ya lo pagó), así los meses pasados no quedan con información falsa. borrar_gasto solo si pide borrar todo.
+- Un grupo junta gastos (ej. "Visa": la persona carga ahí lo que paga con la tarjeta y después lo compara con el resumen). Si dice que algo lo pagó con una tarjeta que es un grupo de la lista, cargalo adentro con grupo_id. Pagar el grupo (pagar_gasto con su id) paga todo lo de adentro; también se puede pagar un gasto de adentro solo.
 - Si te mandan una captura: un ticket o factura es un gasto (crear_gasto, o usar_reserva si es de una reserva de la lista); un resumen de tarjeta puede tener varios gastos (proponé uno por cada consumo que valga la pena, las cuotas como fijo); el portafolio de un broker es cargar_cartera con todas las posiciones de CEDEARs que se vean. Leé los números con cuidado (en Argentina el punto separa miles y la coma, decimales). Si algo no se lee bien, decilo y preguntá en vez de inventar.
 - Respuestas cortas, cálidas y con un toque de humor de mona, en ${p.idioma === 'en' ? 'inglés' : 'castellano rioplatense'}. Nada de consejos financieros ni temas ajenos a la app.
 La persona se llama ${p.nombre || '(sin nombre)'}.${p.saldo !== undefined ? ` Saldo hoy: ${p.saldo / 100} ${p.moneda}.` : ''}${p.ingreso ? ` Ingreso: ${p.ingreso.monto / 100} ${p.moneda} por mes, cobra el día ${p.ingreso.diaCobro}.` : ''}
@@ -316,9 +323,12 @@ export function interpretarHerramienta(
   const e = (entrada ?? {}) as Record<string, unknown>;
   const actual = mesDe(hoy);
   if (nombre === 'crear_gasto') {
-    const monto = aCentavos(e.monto_mensual);
     const tipoPedido = e.tipo as string;
-    if (!monto || !['puntual', 'fijo', 'reserva'].includes(tipoPedido)) return null;
+    // Un grupo puede nacer sin estimado (vale lo que le cargues adentro).
+    const monto = tipoPedido === 'grupo' && e.monto_mensual === 0 ? 0 : aCentavos(e.monto_mensual);
+    if (monto === null || !['puntual', 'fijo', 'reserva', 'grupo'].includes(tipoPedido)) return null;
+    const grupo = typeof e.grupo_id === 'string' ? gastos.find((g) => g.id === e.grupo_id && g.tipo === 'grupo') : undefined;
+    if (e.grupo_id && (!grupo || tipoPedido === 'reserva' || tipoPedido === 'grupo')) return null;
     const nombreGasto = typeof e.nombre === 'string' ? e.nombre.trim().slice(0, 80) : '';
     if (!nombreGasto) return null;
     let mesInicio =
@@ -342,6 +352,7 @@ export function interpretarHerramienta(
         mesFin: tipo === 'puntual' || n === null ? null : sumarMeses(mesInicio, n - 1),
         modoReserva: reserva ? (e.modo_reserva === 'manual' ? 'manual' : 'proporcional') : null,
         recurrente: reserva ? n !== 1 : false,
+        ...(grupo ? { grupoId: grupo.id } : {}),
       },
     };
   }

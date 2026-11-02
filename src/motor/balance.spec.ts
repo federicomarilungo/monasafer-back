@@ -250,3 +250,50 @@ describe('cambios de monto desde un mes', () => {
     expect(ene.balance).toBe(USD(1000 - 300 - 300 - 200 - 250));
   });
 });
+
+describe('grupos (la Visa del mes)', () => {
+  // Caso de Fede: una Visa que estima en 300 y le va cargando los gastos que hace con la tarjeta.
+  const visa: Gasto = { id: 'v', nombre: 'Visa', monto: USD(300), tipo: 'grupo', mesInicio: '2026-10', mesFin: '2026-11' };
+  const cena: Gasto = { id: 'c', nombre: 'Cena', monto: USD(80), tipo: 'puntual', mesInicio: '2026-10', grupoId: 'v' };
+  const zapas: Gasto = { id: 'z', nombre: 'Zapatillas', monto: USD(60), tipo: 'fijo', mesInicio: '2026-10', mesFin: '2026-12', grupoId: 'v' };
+  const nafta: Gasto = { id: 'n', nombre: 'Nafta', monto: USD(250), tipo: 'puntual', mesInicio: '2026-11', grupoId: 'v' };
+
+  it('vale lo estimado mientras lo cargado no llega, y lo cargado cuando se pasa', () => {
+    const [oct, nov, dic] = proyectar(datos({ gastos: [visa, cena, zapas, nafta] }), hoy, '2026-12');
+    expect(oct.gastos.map((l) => l.gastoId)).toEqual(['v']);
+    expect(oct.gastos[0]).toMatchObject({ monto: USD(300), sumaItems: USD(140), pendiente: USD(300) });
+    expect(oct.gastos[0].items?.map((i) => i.gastoId)).toEqual(['c', 'z']);
+    expect(nov.gastos[0]).toMatchObject({ monto: USD(310), sumaItems: USD(310) });
+    // En diciembre la Visa ya terminó: la cuota de las zapatillas cuenta suelta, no se pierde.
+    expect(dic.gastos.map((l) => [l.gastoId, l.monto])).toEqual([['z', USD(60)]]);
+    expect([oct.balance, nov.balance, dic.balance]).toEqual([USD(700), USD(390), USD(330)]);
+  });
+
+  it('pagar un gasto de adentro lo descuenta del grupo; pagar el grupo cubre todo', () => {
+    const conZapasPagas = datos({
+      perfil: { saldo: USD(940), ingresoMensual: null },
+      gastos: [visa, cena, zapas],
+      estados: [{ gastoId: 'z', mes: '2026-10', pagado: true }],
+    });
+    const [oct] = proyectar(conZapasPagas, hoy, '2026-10');
+    expect(oct.gastos[0].pendiente).toBe(USD(240));
+    expect(oct.balance).toBe(USD(700));
+
+    const visaPaga = datos({
+      perfil: { saldo: USD(700), ingresoMensual: null },
+      gastos: [visa, cena, zapas],
+      estados: [{ gastoId: 'v', mes: '2026-10', pagado: true }],
+    });
+    const [octPaga] = proyectar(visaPaga, hoy, '2026-10');
+    expect(octPaga.gastos[0].pendiente).toBe(0);
+    expect(octPaga.gastos[0].items?.every((i) => i.pagado)).toBe(true);
+    expect(octPaga.balance).toBe(USD(700));
+  });
+
+  it('un grupo sin estimado vale lo que suma', () => {
+    const resumen = { ...visa, monto: 0, mesFin: '2026-10' };
+    const r = resumenDelMes(datos({ gastos: [resumen, cena, zapas] }), hoy, '2026-10');
+    expect(r?.gastos[0]).toMatchObject({ monto: USD(140), pendiente: USD(140) });
+    expect(r?.balance).toBe(USD(860));
+  });
+});

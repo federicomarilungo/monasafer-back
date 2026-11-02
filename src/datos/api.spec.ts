@@ -759,6 +759,61 @@ describe('API de Monasafer', () => {
     await http.post('/cuentas/traspasar').set(otro.auth).send({ desde: pesos.id, hacia: 'principal', monto: 1, montoEntra: 1 }).expect(404);
   });
 
+  // Fede, 2/11: "un gasto tipo grupo, ej. la tarjeta: le cargo gastos adentro y lo pago
+  // completo o cada gasto por separado, como quiera".
+  it('grupos: la Visa con gastos adentro, pagar uno o todo, borrar y deshacer', async () => {
+    const { auth } = await cuenta('grupos@test.com');
+    const otra = await cuenta('grupos-otra@test.com');
+    await http.patch('/perfil').set(auth).send({ saldo: USD(1000) }).expect(200);
+    const visa = (
+      await http.post('/gastos').set(auth)
+        .send({ nombre: 'Visa', emoji: '💳', monto: USD(300), tipo: 'grupo', mesInicio: '2026-10' })
+        .expect(201)
+    ).body;
+    expect(visa).toMatchObject({ tipo: 'grupo', grupoId: null });
+    const nuevo = (b: object) => http.post('/gastos').set(auth).send({ tipo: 'puntual', mesInicio: '2026-10', ...b });
+    const cena = (await nuevo({ nombre: 'Cena', monto: USD(80), grupoId: visa.id }).expect(201)).body;
+    const zapas = (await nuevo({ nombre: 'Zapas', monto: USD(60), tipo: 'fijo', mesFin: '2026-12', grupoId: visa.id }).expect(201)).body;
+    expect(cena.grupoId).toBe(visa.id);
+    // Ni reservas ni grupos adentro de un grupo, ni el grupo de otra persona.
+    await nuevo({ nombre: 'Súper', monto: USD(1), tipo: 'reserva', grupoId: visa.id }).expect(400);
+    await http.post('/gastos').set(otra.auth).send({ nombre: 'X', monto: 1, tipo: 'puntual', mesInicio: '2026-10', grupoId: visa.id }).expect(400);
+    await http.patch(`/gastos/${visa.id}`).set(auth).send({ grupoId: visa.id }).expect(400);
+
+    const oct = async () => (await http.get('/meses/2026-10').set(auth).expect(200)).body;
+    let r = await oct();
+    expect(r.gastos).toHaveLength(1);
+    expect(r.gastos[0]).toMatchObject({ gastoId: visa.id, monto: USD(300), sumaItems: USD(140) });
+    expect(r.balance).toBe(USD(700));
+
+    // Pagar uno de adentro: sale del saldo y el grupo deja de esperarlo.
+    let p = await http.post(`/gastos/${zapas.id}/meses/2026-10/pagar`).set(auth).expect(200);
+    expect(p.body.saldo).toBe(USD(940));
+    r = await oct();
+    expect(r.gastos[0].pendiente).toBe(USD(240));
+    expect(r.balance).toBe(USD(700));
+    // Pagar el grupo entero: descuenta lo que faltaba y cubre los de adentro.
+    p = await http.post(`/gastos/${visa.id}/meses/2026-10/pagar`).set(auth).expect(200);
+    expect(p.body.saldo).toBe(USD(700));
+    r = await oct();
+    expect(r.gastos[0].items.every((i: { pagado: boolean }) => i.pagado)).toBe(true);
+    expect(r.balance).toBe(USD(700));
+    await http.post(`/gastos/${cena.id}/meses/2026-10/pagar`).set(auth).expect(409);
+    await http.delete(`/gastos/${zapas.id}/meses/2026-10/pagar`).set(auth).expect(409);
+    p = await http.delete(`/gastos/${visa.id}/meses/2026-10/pagar`).set(auth).expect(200);
+    expect(p.body.saldo).toBe(USD(940));
+
+    // Borrar el grupo se lleva lo de adentro; Deshacer lo trae todo.
+    await http.delete(`/gastos/${visa.id}`).set(auth).expect(200);
+    expect((await http.get('/gastos').set(auth)).body).toHaveLength(0);
+    await http.post(`/gastos/${visa.id}/restaurar`).set(auth).expect(200);
+    expect((await http.get('/gastos').set(auth)).body).toHaveLength(3);
+    // Sacar un gasto del grupo: cuenta suelto.
+    await http.patch(`/gastos/${cena.id}`).set(auth).send({ grupoId: null }).expect(200);
+    r = await oct();
+    expect(r.gastos.map((l: { gastoId: string }) => l.gastoId).sort()).toEqual([visa.id, cena.id].sort());
+  });
+
   it('un usuario no puede ver ni tocar lo de otro', async () => {
     const a = await cuenta('a@test.com');
     const b = await cuenta('b@test.com');

@@ -68,7 +68,9 @@ export interface GastoEntrada {
   nombre: string;
   emoji: string;
   monto: number;
-  tipo: 'puntual' | 'fijo' | 'reserva';
+  tipo: 'puntual' | 'fijo' | 'reserva' | 'grupo';
+  /** Id del grupo en el que va (null: suelto). */
+  grupoId?: string | null;
   mesInicio: string;
   mesFin: string | null;
   modoReserva: 'proporcional' | 'manual' | null;
@@ -99,8 +101,8 @@ export function gasto(body: unknown, parcial = false): Partial<GastoEntrada> {
   if (tiene('emoji')) out.emoji = texto(b.emoji, 'emoji', 16, false);
   if (!parcial || tiene('monto')) out.monto = monto(b.monto);
   if (!parcial || tiene('tipo')) {
-    if (!['puntual', 'fijo', 'reserva'].includes(b.tipo as string))
-      throw new BadRequestException('tipo: puntual, fijo o reserva');
+    if (!['puntual', 'fijo', 'reserva', 'grupo'].includes(b.tipo as string))
+      throw new BadRequestException('tipo: puntual, fijo, reserva o grupo');
     out.tipo = b.tipo as GastoEntrada['tipo'];
   }
   if (!parcial || tiene('mesInicio'))
@@ -117,6 +119,18 @@ export function gasto(body: unknown, parcial = false): Partial<GastoEntrada> {
   }
   if (tiene('recurrente')) out.recurrente = b.recurrente === true;
   if (tiene('cambiosMonto')) out.cambiosMonto = cambiosMonto(b.cambiosMonto);
+  if (tiene('grupoId')) {
+    if (b.grupoId !== null && (typeof b.grupoId !== 'string' || !/^[0-9a-f]{24}$/.test(b.grupoId)))
+      throw new BadRequestException('grupoId: id de un gasto de tipo grupo, o null');
+    out.grupoId = b.grupoId as string | null;
+  }
+  if (out.tipo === 'grupo' || out.tipo === 'reserva') {
+    if (out.grupoId) throw new BadRequestException('Un grupo o una reserva no van adentro de un grupo');
+  }
+  if (out.tipo === 'grupo') {
+    out.modoReserva = null;
+    out.recurrente = false;
+  }
   if (!parcial) {
     if (out.tipo === 'reserva' && !out.modoReserva)
       out.modoReserva = 'proporcional';

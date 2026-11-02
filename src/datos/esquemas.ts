@@ -62,7 +62,9 @@ export class GastoDb {
   @Prop({ required: true, trim: true }) nombre: string;
   @Prop({ default: '' }) emoji: string;
   @Prop({ required: true }) monto: number;
-  @Prop({ required: true, enum: ['puntual', 'fijo', 'reserva'] }) tipo: string;
+  @Prop({ required: true, enum: ['puntual', 'fijo', 'reserva', 'grupo'] }) tipo: string;
+  /** Grupo (otro gasto de tipo `grupo`, ej. la Visa) en el que está cargado este gasto. */
+  @Prop({ type: Types.ObjectId, default: null, index: true }) grupoId: Types.ObjectId | null;
   @Prop({ required: true }) mesInicio: string;
   @Prop({ type: String, default: null }) mesFin: string | null;
   @Prop({ type: String, default: null, enum: ['proporcional', 'manual', null] })

@@ -5,6 +5,7 @@ const gastos: GastoContexto[] = [
   { id: 'luz', nombre: 'Luz', emoji: '💡', tipo: 'fijo', monto: 3000, mesInicio: '2026-01', mesFin: null, pagadoEsteMes: false },
   { id: 'nafta', nombre: 'Nafta', emoji: '⛽', tipo: 'reserva', monto: 20000, mesInicio: '2026-01', mesFin: null, pagadoEsteMes: false },
   { id: 'prueba', nombre: 'prueba', emoji: '💸', tipo: 'puntual', monto: 1000, mesInicio: '2026-10', mesFin: null, pagadoEsteMes: false },
+  { id: 'visa', nombre: 'Visa', emoji: '💳', tipo: 'grupo', monto: 0, mesInicio: '2026-11', mesFin: null, pagadoEsteMes: false },
 ];
 
 describe('asistente: interpretar lo que propone el modelo', () => {
@@ -29,6 +30,22 @@ describe('asistente: interpretar lo que propone el modelo', () => {
     }, gastos, hoy);
     expect(p).toMatchObject({ gasto: { tipo: 'puntual', mesInicio: '2026-10', mesFin: null, monto: 8056 } });
     expect(interpretarHerramienta('crear_gasto', { nombre: 'X', monto_mensual: 0, tipo: 'fijo' }, gastos, hoy)).toBeNull();
+  });
+
+  it('grupos: crear la Visa sin estimado y cargarle un gasto adentro', () => {
+    const visa = interpretarHerramienta('crear_gasto', {
+      nombre: 'Visa', emoji: '💳', monto_mensual: 0, tipo: 'grupo',
+      mes_inicio: '2026-11', cantidad_meses: null, modo_reserva: null, grupo_id: null,
+    }, gastos, hoy);
+    expect(visa).toMatchObject({ gasto: { tipo: 'grupo', monto: 0, mesFin: null, modoReserva: null } });
+    const cena = interpretarHerramienta('crear_gasto', {
+      nombre: 'Cena', emoji: '🍝', monto_mensual: 45, tipo: 'puntual',
+      mes_inicio: '2026-11', cantidad_meses: null, modo_reserva: null, grupo_id: 'visa',
+    }, gastos, hoy);
+    expect(cena).toMatchObject({ gasto: { tipo: 'puntual', grupoId: 'visa', mesInicio: '2026-11' } });
+    // Un grupo que no es grupo, o una reserva adentro: se descarta.
+    expect(interpretarHerramienta('crear_gasto', { nombre: 'X', monto_mensual: 5, tipo: 'puntual', grupo_id: 'luz' }, gastos, hoy)).toBeNull();
+    expect(interpretarHerramienta('crear_gasto', { nombre: 'X', monto_mensual: 5, tipo: 'reserva', grupo_id: 'visa' }, gastos, hoy)).toBeNull();
   });
 
   it('reserva para siempre, manual', () => {

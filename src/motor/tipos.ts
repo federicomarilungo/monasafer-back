@@ -2,7 +2,11 @@
 
 export type Mes = string;
 
-export type TipoGasto = 'puntual' | 'fijo' | 'reserva';
+/**
+ * `grupo` junta gastos adentro (la Visa del mes): se paga entero o cada gasto por separado.
+ * Vale lo que suman sus gastos, o lo estimado (`monto`) si es más.
+ */
+export type TipoGasto = 'puntual' | 'fijo' | 'reserva' | 'grupo';
 export type ModoReserva = 'proporcional' | 'manual';
 
 export interface Gasto {
@@ -28,6 +32,11 @@ export interface Gasto {
    * editar no reescribe los meses anteriores.
    */
   cambiosMonto?: CambioMonto[];
+  /**
+   * Grupo al que pertenece (un puntual o fijo cargado "adentro" de la Visa). En un mes en
+   * que su grupo no está vigente, cuenta suelto: nunca se pierde un gasto.
+   */
+  grupoId?: string | null;
 }
 
 export interface CambioMonto {
@@ -84,6 +93,10 @@ export interface LineaGasto {
   pendiente: number;
   /** Solo reservas: lo usado en el mes. */
   usado?: number;
+  /** Solo grupos: los gastos de adentro ese mes (ya no aparecen sueltos). */
+  items?: LineaGasto[];
+  /** Solo grupos: lo que suman los gastos de adentro. */
+  sumaItems?: number;
 }
 
 export interface ResumenMes {

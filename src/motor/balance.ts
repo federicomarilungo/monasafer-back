@@ -6,6 +6,7 @@ export function vigente(g: Gasto, mes: Mes): boolean {
   if (mes < g.mesInicio) return false;
   if (g.tipo === 'puntual') return mes === g.mesInicio;
   if (g.tipo === 'reserva' && !g.recurrente) return mes === g.mesInicio;
+  // Un grupo dura como un fijo (la Visa de todos los meses, o `mesFin = mesInicio` si es de uno).
   return !g.mesFin || mes <= g.mesFin;
 }
 
@@ -39,40 +40,83 @@ export function restanteReserva(
   return Math.round((monto * (dias - hoy.getDate())) / dias);
 }
 
+function linea(datos: Datos, g: Gasto, mes: Mes, hoy: Date): LineaGasto {
+  const estado = datos.estados.find((e) => e.gastoId === g.id && e.mes === mes);
+  const monto = estado?.montoDelMes ?? montoBase(g, mes);
+  const pagado = !!estado?.pagado;
+  if (g.tipo !== 'reserva') {
+    return {
+      gastoId: g.id,
+      nombre: g.nombre,
+      tipo: g.tipo,
+      monto,
+      pagado,
+      pendiente: pagado ? 0 : monto,
+    };
+  }
+  const usado = datos.usos
+    .filter((u) => u.gastoId === g.id && u.mes === mes)
+    .reduce((s, u) => s + u.monto, 0);
+  const pendiente = pagado
+    ? 0
+    : restanteReserva(monto, g.modoReserva, usado, mes, hoy);
+  return {
+    gastoId: g.id,
+    nombre: g.nombre,
+    tipo: g.tipo,
+    monto,
+    pagado,
+    pendiente,
+    usado,
+  };
+}
+
+/**
+ * Un grupo vale lo que suman sus gastos, o lo estimado si es más (la Visa que calculás en
+ * 300 aunque llevás cargados 100). Lo que falta es eso menos lo que ya pagaste de adentro;
+ * pagado entero, no falta nada (y sus gastos cuentan como pagados).
+ */
+export function lineaGrupo(
+  g: LineaGasto,
+  items: LineaGasto[],
+): LineaGasto {
+  const deAdentro = g.pagado
+    ? items.map((i) => ({ ...i, pagado: true, pendiente: 0 }))
+    : items;
+  const sumaItems = items.reduce((s, i) => s + i.monto, 0);
+  const pagadoItems = items.reduce((s, i) => s + (i.pagado ? i.monto : 0), 0);
+  const monto = Math.max(g.monto, sumaItems);
+  return {
+    ...g,
+    monto,
+    pendiente: g.pagado ? 0 : monto - pagadoItems,
+    items: deAdentro,
+    sumaItems,
+  };
+}
+
+/** Gastos que caen adentro de un grupo vigente ese mes, por id de grupo. */
+export function itemsPorGrupo<G extends Gasto>(gastos: G[], mes: Mes): Map<string, G[]> {
+  const grupos = new Set(
+    gastos.filter((g) => g.tipo === 'grupo' && vigente(g, mes)).map((g) => g.id),
+  );
+  const porGrupo = new Map<string, G[]>();
+  for (const g of gastos)
+    if (g.grupoId && grupos.has(g.grupoId) && vigente(g, mes))
+      porGrupo.set(g.grupoId, [...(porGrupo.get(g.grupoId) ?? []), g]);
+  return porGrupo;
+}
+
 function lineas(datos: Datos, mes: Mes, hoy: Date): LineaGasto[] {
+  const porGrupo = itemsPorGrupo(datos.gastos, mes);
+  const adentro = new Set([...porGrupo.values()].flat().map((g) => g.id));
   return datos.gastos
-    .filter((g) => vigente(g, mes))
+    .filter((g) => vigente(g, mes) && !adentro.has(g.id))
     .map((g) => {
-      const estado = datos.estados.find(
-        (e) => e.gastoId === g.id && e.mes === mes,
-      );
-      const monto = estado?.montoDelMes ?? montoBase(g, mes);
-      const pagado = !!estado?.pagado;
-      if (g.tipo !== 'reserva') {
-        return {
-          gastoId: g.id,
-          nombre: g.nombre,
-          tipo: g.tipo,
-          monto,
-          pagado,
-          pendiente: pagado ? 0 : monto,
-        };
-      }
-      const usado = datos.usos
-        .filter((u) => u.gastoId === g.id && u.mes === mes)
-        .reduce((s, u) => s + u.monto, 0);
-      const pendiente = pagado
-        ? 0
-        : restanteReserva(monto, g.modoReserva, usado, mes, hoy);
-      return {
-        gastoId: g.id,
-        nombre: g.nombre,
-        tipo: g.tipo,
-        monto,
-        pagado,
-        pendiente,
-        usado,
-      };
+      const l = linea(datos, g, mes, hoy);
+      if (g.tipo !== 'grupo') return l;
+      const items = (porGrupo.get(g.id) ?? []).map((i) => linea(datos, i, mes, hoy));
+      return lineaGrupo(l, items);
     });
 }
 

@@ -110,3 +110,16 @@ describe('historial', () => {
     expect(h.map((m) => m.total)).toEqual([0, USD(530), USD(530), USD(520 + 210 + 40), USD(500)]);
   });
 });
+
+describe('historial con grupos', () => {
+  const visa: GastoHistorial = { id: 'v', nombre: 'Visa', emoji: '💳', monto: USD(300), tipo: 'grupo', mesInicio: '2026-08' };
+  const cena: GastoHistorial = { id: 'c', nombre: 'Cena', monto: USD(80), tipo: 'puntual', mesInicio: '2026-08', grupoId: 'v' };
+  const nafta: GastoHistorial = { id: 'n', nombre: 'Nafta', monto: USD(400), tipo: 'puntual', mesInicio: '2026-09', grupoId: 'v' };
+
+  it('el grupo cuenta lo estimado o lo cargado si fue más, con sus gastos adentro', () => {
+    const h = historial({ gastos: [visa, cena, nafta], estados: [], usos: [] }, '2026-08', '2026-09');
+    expect(h.map((m) => m.total)).toEqual([USD(300), USD(400)]);
+    expect(h[0].gastos).toHaveLength(1);
+    expect(h[0].gastos[0].items?.map((i) => i.gastoId)).toEqual(['c']);
+  });
+});
