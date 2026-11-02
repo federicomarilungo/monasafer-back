@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   ServiceUnavailableException,
   ConflictException,
   Injectable,
@@ -665,10 +666,35 @@ export class MonasaferService implements Sesiones {
    * el front según premium, porque son datos de la misma persona.
    */
   async historial(usuarioId: string, meses: number) {
-    const id = oid(usuarioId);
     const actual = mesDe(this.hoy());
-    const desde = sumarMeses(actual, -meses);
-    const hasta = sumarMeses(actual, -1);
+    return this.historialEntre(usuarioId, sumarMeses(actual, -meses), sumarMeses(actual, -1));
+  }
+
+  /** Meses gratis hacia atrás en el calendario; con premium no hay tope (Fede, 2/11). */
+  static readonly MESES_ATRAS_GRATIS = 3;
+
+  /**
+   * Un mes pasado para verlo en el calendario: lo gastado (como en el historial) y si hay
+   * algún gasto que empezó antes, para saber si tiene sentido seguir para atrás. Hasta 3
+   * meses atrás para todos; más allá, solo premium (403).
+   */
+  async mesPasado(usuarioId: string, mes: string) {
+    const actual = mesDe(this.hoy());
+    if (mes >= actual) throw new BadRequestException('mes tiene que ser un mes pasado');
+    if (mes < sumarMeses(actual, -MonasaferService.MESES_ATRAS_GRATIS)) {
+      const u = await this.usuarios.findById(oid(usuarioId), { premiumHasta: 1 }).lean();
+      if (!u?.premiumHasta || u.premiumHasta.getTime() <= Date.now())
+        throw new ForbiddenException('Ver más de 3 meses atrás es Premium');
+    }
+    const [[resumen], antes] = await Promise.all([
+      this.historialEntre(usuarioId, mes, mes),
+      this.gastos.exists({ usuarioId: oid(usuarioId), mesInicio: { $lt: mes } }),
+    ]);
+    return { ...resumen, hayAntes: !!antes };
+  }
+
+  private async historialEntre(usuarioId: string, desde: string, hasta: string) {
+    const id = oid(usuarioId);
     const [gastos, estados, usos] = await Promise.all([
       this.gastos.find({ usuarioId: id, mesInicio: { $lte: hasta } }).lean(),
       this.meses.find({ usuarioId: id, mes: { $gte: desde, $lte: hasta } }).lean(),

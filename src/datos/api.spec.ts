@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import request from 'supertest';
 import { AppModule } from '../app.module';
+import { PremiumService } from '../premium/premium.service';
 import { MonasaferService } from './monasafer.service';
 import { VerificadorGoogle } from '../auth/google';
 import { Correo } from '../auth/correo';
@@ -34,6 +35,10 @@ describe('API de Monasafer', () => {
     await app.init();
     jest
       .spyOn(mod.get(MonasaferService), 'hoy')
+      .mockReturnValue(new Date(2026, 9, 15));
+    // El asistente también calcula meses (cuotas): la misma fecha fija.
+    jest
+      .spyOn(mod.get(PremiumService), 'hoy')
       .mockReturnValue(new Date(2026, 9, 15));
     jest
       .spyOn(mod.get(Correo), 'enviar')
@@ -634,6 +639,25 @@ describe('API de Monasafer', () => {
     expect(h2.map((m: { total: number }) => m.total)).toEqual([0, USD(30), USD(70)]);
     await http.get('/historial?meses=13').set(auth).expect(400);
     await http.get('/historial?meses=0').set(auth).expect(400);
+  });
+
+  it('calendario para atrás: 3 meses gratis, más con premium', async () => {
+    const { auth } = await cuenta('atras@test.com');
+    await http
+      .post('/gastos')
+      .set(auth)
+      .send({ nombre: 'Alquiler', monto: USD(500), tipo: 'fijo', mesInicio: '2026-01' })
+      .expect(201);
+    const sep = (await http.get('/historial?mes=2026-09').set(auth).expect(200)).body;
+    expect(sep).toMatchObject({ mes: '2026-09', total: USD(500), hayAntes: true });
+    expect(sep.gastos[0]).toMatchObject({ nombre: 'Alquiler', pagado: false });
+    await http.get('/historial?mes=2026-07').set(auth).expect(200);
+    await http.get('/historial?mes=2026-06').set(auth).expect(403);
+    await http.get('/historial?mes=2026-10').set(auth).expect(400);
+    await http.get('/historial?mes=julio').set(auth).expect(400);
+    await http.post('/premium/prueba').set(auth).send({ activo: true }).expect(200);
+    const ene = (await http.get('/historial?mes=2026-01').set(auth).expect(200)).body;
+    expect(ene).toMatchObject({ total: USD(500), hayAntes: false });
   });
 
   it('comentarios de mejora: se guardan, avisan por email y se van con la cuenta', async () => {

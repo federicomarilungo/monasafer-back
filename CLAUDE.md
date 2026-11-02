@@ -61,6 +61,7 @@ Sin `MONGO_URI` la API levanta solo con `GET /ping`, `GET /salud` y `POST /admin
 | `GET /datos` | perfil + gastos + estados + usos desde el mes actual, para que el front calcule |
 | `GET /meses/:mes`, `GET /proyeccion?hasta=AAAA-MM` | resumen con el motor (hasta 24 meses) |
 | `GET /historial?meses=N` | lo gastado en los N meses cerrados (1 a 12, default 3), con `historial()` del motor; los gastos borrados cuentan hasta el mes en que se borraron (`archivadoEn`). Las métricas normales piden 3, las premium 12 |
+| `GET /historial?mes=AAAA-MM` | un mes pasado para el calendario: lo gastado y `hayAntes` (algún gasto empezó antes). Hasta 3 meses atrás para todos; más atrás, solo premium (403) |
 | `POST /comentarios` | `{tipo: idea\|error\|otro, texto (hasta 2000), pantalla?}`: propuestas de mejora. Se guardan en `comentarios` (con copia de email y nombre, `estado: nuevo`) y avisan por Resend a `COMENTARIOS_PARA` (default admin@monasafer.com) con reply-to de la persona; sin Resend igual se guardan. 10 por día por persona. Se borran con la cuenta |
 
 ## Cajón de bananas (K1)

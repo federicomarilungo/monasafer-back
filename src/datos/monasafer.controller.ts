@@ -344,7 +344,13 @@ export class MonasaferController {
   }
 
   @Get('historial')
-  historial(@UsuarioId() u: string, @Query('meses') meses?: string) {
+  historial(
+    @UsuarioId() u: string,
+    @Query('meses') meses?: string,
+    @Query('mes') mes?: string,
+  ) {
+    // ?mes=AAAA-MM: un solo mes pasado, para el calendario (3 atrás gratis, más con premium).
+    if (mes !== undefined) return this.s.mesPasado(u, v.mes(mes));
     const n = meses === undefined ? 3 : Number(meses);
     if (!Number.isInteger(n) || n < 1 || n > 12)
       throw new BadRequestException('meses va de 1 a 12');
