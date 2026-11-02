@@ -351,11 +351,11 @@ export class MonasaferService implements Sesiones {
     return this.cuentaPublica(creada.toObject());
   }
 
-  /** Cambia nombre, emoji o el saldo (corregirlo, como el saldo de la principal). */
+  /** Cambia nombre, emoji, moneda o el saldo (corregirlo, como el saldo de la principal). */
   async editarCuenta(
     usuarioId: string,
     cuentaId: string,
-    cambios: Partial<{ nombre: string; emoji: string; saldo: number }>,
+    cambios: Partial<{ nombre: string; emoji: string; saldo: number; moneda: string }>,
   ) {
     const c = await this.cuentas.findOneAndUpdate(
       { _id: oid(cuentaId), usuarioId: oid(usuarioId), archivada: false },

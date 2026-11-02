@@ -734,6 +734,10 @@ describe('API de Monasafer', () => {
     // Deshacer resta de la cuenta donde entró
     await http.delete(`/ingresos/${changa.ingreso.id}`).set(auth).expect(200);
     expect((await http.get('/cuentas').set(auth)).body[1].saldo).toBe(0);
+    // La moneda se cambia: el número se lee en la nueva, sin convertir.
+    await http.patch(`/cuentas/${pesos.id}`).set(auth).send({ moneda: 'XYZ' }).expect(400);
+    expect((await http.patch(`/cuentas/${pesos.id}`).set(auth).send({ moneda: 'EUR' }).expect(200)).body.moneda).toBe('EUR');
+    await http.patch(`/cuentas/${pesos.id}`).set(auth).send({ moneda: 'ARS' }).expect(200);
 
     // Traspasos: a la principal, y entre monedas con lo que llegó
     await http.post('/cuentas/traspasar').set(auth).send({ desde: mp.id, hacia: 'principal', monto: USD(30) }).expect(200);

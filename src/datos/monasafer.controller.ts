@@ -199,8 +199,15 @@ export class MonasaferController {
   @Patch('cuentas/:id')
   editarCuenta(@UsuarioId() u: string, @Param('id') id: string, @Body() body: unknown) {
     const b = v.objeto(body);
-    const cambios: Partial<{ nombre: string; emoji: string; saldo: number }> = {};
+    const cambios: Partial<{ nombre: string; emoji: string; saldo: number; moneda: string }> = {};
     if (b.nombre !== undefined) cambios.nombre = v.texto(b.nombre, 'nombre', 40);
+    // La moneda se puede cambiar (Fede, 2/11: "tengo dólares en esa cuenta"): el número
+    // pasa a leerse en la moneda nueva, no se convierte.
+    if (b.moneda !== undefined) {
+      if (!MONEDAS.includes(b.moneda as string))
+        throw new BadRequestException(`moneda: ${MONEDAS.join(', ')}`);
+      cambios.moneda = b.moneda as string;
+    }
     if (b.emoji !== undefined) cambios.emoji = v.texto(b.emoji, 'emoji', 16, false);
     if (b.saldo !== undefined) cambios.saldo = v.saldo(b.saldo);
     return this.s.editarCuenta(u, id, cambios);
