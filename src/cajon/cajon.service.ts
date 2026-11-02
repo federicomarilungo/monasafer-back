@@ -10,7 +10,7 @@ import { Model, Types } from 'mongoose';
 import crypto from 'crypto';
 import { Ahorro, mesDe } from '../motor';
 import { Usuario } from '../datos/esquemas';
-import { Bolsillo, MercadoBolsillo, MovimientoCajon } from './esquemas';
+import { Bolsillo, GrupoCajon, MercadoBolsillo, MovimientoCajon } from './esquemas';
 
 function oid(id: string): Types.ObjectId {
   if (!Types.ObjectId.isValid(id)) throw new NotFoundException();
@@ -27,6 +27,8 @@ export interface NuevoBolsillo {
   decimales: number;
   cotizacion?: { moneda: string; valor: number } | null;
   mercado?: MercadoBolsillo | null;
+  /** Grupo del cajón en el que va (null: suelto). */
+  grupoId?: string | null;
 }
 
 @Injectable()
@@ -36,6 +38,7 @@ export class CajonService {
     @InjectModel(Bolsillo.name) private readonly bolsillos: Model<Bolsillo>,
     @InjectModel(MovimientoCajon.name)
     private readonly movimientos: Model<MovimientoCajon>,
+    @InjectModel(GrupoCajon.name) private readonly grupos: Model<GrupoCajon>,
   ) {}
 
   hoy(): Date {
@@ -45,7 +48,7 @@ export class CajonService {
   /** Bolsillos con su cantidad y los últimos movimientos (la auditoría). */
   async cajon(usuarioId: string) {
     const id = oid(usuarioId);
-    const [bolsillos, cantidades, movimientos] = await Promise.all([
+    const [bolsillos, cantidades, movimientos, grupos] = await Promise.all([
       this.bolsillos
         .find({ usuarioId: id })
         .sort({ orden: 1, createdAt: 1 })
@@ -56,8 +59,10 @@ export class CajonService {
         .sort({ createdAt: -1 })
         .limit(300)
         .lean(),
+      this.grupos.find({ usuarioId: id }).sort({ orden: 1, createdAt: 1 }).lean(),
     ]);
     return {
+      grupos: grupos.map((g) => this.grupoPublico(g)),
       bolsillos: bolsillos
         .filter((b) => !b.archivado)
         .map((b) => ({
@@ -69,6 +74,8 @@ export class CajonService {
           cotizacion: b.cotizacion ?? null,
           mercado: b.mercado ?? null,
           generico: b.generico,
+          grupoId: b.grupoId ? String(b.grupoId) : null,
+          orden: b.orden ?? 0,
           cantidad: cantidades.get(String(b._id)) ?? 0,
         })),
       movimientos: movimientos.map((m) => this.movimientoPublico(m)),
@@ -113,8 +120,10 @@ export class CajonService {
       })) >= 50
     )
       throw new BadRequestException('Hasta 50 bolsillos');
+    if (b.grupoId) await this.grupoDe(usuarioId, b.grupoId);
     const creado = await this.bolsillos.create({
       ...b,
+      grupoId: b.grupoId ? oid(b.grupoId) : null,
       usuarioId: id,
       orden: await this.ordenNuevo(id),
     });
@@ -127,10 +136,15 @@ export class CajonService {
     cambios: Partial<
       Pick<
         NuevoBolsillo,
-        'nombre' | 'emoji' | 'unidad' | 'decimales' | 'cotizacion'
+        'nombre' | 'emoji' | 'unidad' | 'decimales' | 'cotizacion' | 'grupoId'
       >
     >,
   ) {
+    const set: Record<string, unknown> = { ...cambios };
+    if (cambios.grupoId) {
+      await this.grupoDe(usuarioId, cambios.grupoId);
+      set.grupoId = oid(cambios.grupoId);
+    }
     // Cambiar la unidad es renombrarla (lo guardado sigue igual). Los decimales cambian
     // cómo se leen las cantidades guardadas, así que solo se tocan con el bolsillo vacío.
     if (cambios.unidad !== undefined || cambios.decimales !== undefined) {
@@ -159,7 +173,7 @@ export class CajonService {
     const b = await this.bolsillos
       .findOneAndUpdate(
         { _id: oid(bolsilloId), usuarioId: oid(usuarioId), archivado: false },
-        { $set: cambios },
+        { $set: set },
         { new: true },
       )
       .lean();
@@ -167,9 +181,18 @@ export class CajonService {
     return this.bolsilloPublico(b);
   }
 
-  /** Pone los bolsillos en el orden de `ids` (los que falten quedan al final). */
+  /**
+   * Pone los bolsillos y los grupos en el orden de `ids` (los que falten quedan al final).
+   * Comparten el orden: un id que no es de un bolsillo puede ser de un grupo.
+   */
   async ordenar(usuarioId: string, ids: string[]) {
     const id = oid(usuarioId);
+    if (ids.length)
+      await this.grupos.bulkWrite(
+        ids.map((g, i) => ({
+          updateOne: { filter: { _id: oid(g), usuarioId: id }, update: { $set: { orden: i } } },
+        })),
+      );
     await this.bolsillos.bulkWrite(
       ids.map((b, i) => ({
         updateOne: {
@@ -424,9 +447,46 @@ export class CajonService {
     return { ok: true };
   }
 
+  // ---- Grupos del cajón ----
+
+  async crearGrupo(usuarioId: string, g: { nombre: string; emoji: string }) {
+    const id = oid(usuarioId);
+    if ((await this.grupos.countDocuments({ usuarioId: id })) >= 20)
+      throw new BadRequestException('Hasta 20 grupos');
+    const creado = await this.grupos.create({ ...g, usuarioId: id, orden: await this.ordenNuevo(id) });
+    return this.grupoPublico(creado.toObject());
+  }
+
+  async editarGrupo(usuarioId: string, grupoId: string, cambios: { nombre?: string; emoji?: string }) {
+    const g = await this.grupos
+      .findOneAndUpdate({ _id: oid(grupoId), usuarioId: oid(usuarioId) }, { $set: cambios }, { new: true })
+      .lean();
+    if (!g) throw new NotFoundException();
+    return this.grupoPublico(g);
+  }
+
+  /** Borrar un grupo no toca la plata: sus bolsillos quedan sueltos, en su lugar. */
+  async borrarGrupo(usuarioId: string, grupoId: string) {
+    const g = await this.grupoDe(usuarioId, grupoId);
+    await this.bolsillos.updateMany({ usuarioId: g.usuarioId, grupoId: g._id }, { $set: { grupoId: null } });
+    await this.grupos.deleteOne({ _id: g._id });
+    return { ok: true };
+  }
+
+  private async grupoDe(usuarioId: string, grupoId: string) {
+    const g = await this.grupos.findOne({ _id: oid(grupoId), usuarioId: oid(usuarioId) }).lean();
+    if (!g) throw new BadRequestException('grupoId: no es un grupo tuyo');
+    return g;
+  }
+
+  private grupoPublico(g: GrupoCajon & { _id: unknown }) {
+    return { id: String(g._id), nombre: g.nombre, emoji: g.emoji ?? '', orden: g.orden ?? 0 };
+  }
+
   async borrarDatos(usuarioId: string) {
     const id = oid(usuarioId);
     await Promise.all([
+      this.grupos.deleteMany({ usuarioId: id }),
       this.bolsillos.deleteMany({ usuarioId: id }),
       this.movimientos.deleteMany({ usuarioId: id }),
     ]);
@@ -463,11 +523,11 @@ export class CajonService {
 
   /** Los nuevos van al final: después de reordenar, los órdenes van de 0 a n-1. */
   private async ordenNuevo(usuarioId: Types.ObjectId) {
-    const ultimo = await this.bolsillos
-      .findOne({ usuarioId })
-      .sort({ orden: -1 })
-      .lean();
-    return (ultimo?.orden ?? 0) + 1;
+    const [ultimo, grupo] = await Promise.all([
+      this.bolsillos.findOne({ usuarioId }).sort({ orden: -1 }).lean(),
+      this.grupos.findOne({ usuarioId }).sort({ orden: -1 }).lean(),
+    ]);
+    return Math.max(ultimo?.orden ?? 0, grupo?.orden ?? 0) + 1;
   }
 
   private async bolsilloDe(usuarioId: string, bolsilloId: string) {
@@ -509,6 +569,7 @@ export class CajonService {
       cotizacion: b.cotizacion ?? null,
       mercado: b.mercado ?? null,
       generico: b.generico,
+      grupoId: b.grupoId ? String(b.grupoId) : null,
     };
   }
 

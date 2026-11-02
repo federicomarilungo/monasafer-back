@@ -241,6 +241,7 @@ describe('Cajón de bananas', () => {
     const [dolar] = (await cajon()).bolsillos;
     const mov = (await cajon()).movimientos[0];
     expect((await http.get('/cajon').set(otro).expect(200)).body).toEqual({
+      grupos: [],
       bolsillos: [],
       movimientos: [],
     });
@@ -498,6 +499,41 @@ describe('Cajón de bananas', () => {
     for (const id of [a, b, c])
       await http.delete(`/cajon/bolsillos/${id}`).set(auth).expect(200);
   });
+  // Fede, 2/11: "grupos en el cajón, sobre todo en las inversiones: un grupo y adentro los índices".
+  it('grupos del cajón: juntan bolsillos, comparten el orden y borrarlos los deja sueltos', async () => {
+    const otra = await cuenta('cajon-grupos-otra@test.com');
+    const grupo = (
+      await http.post('/cajon/grupos').set(auth).send({ nombre: 'Cartera IOL', emoji: '📊' }).expect(201)
+    ).body;
+    expect(grupo).toMatchObject({ nombre: 'Cartera IOL', emoji: '📊' });
+    const btc = (
+      await http.post('/cajon/bolsillos').set(auth)
+        .send({ nombre: 'Bitcoin', unidad: 'BTC', mercado: 'cripto', grupoId: grupo.id }).expect(201)
+    ).body;
+    expect(btc.grupoId).toBe(grupo.id);
+    const usd = (await http.post('/cajon/bolsillos').set(auth).send({ nombre: 'Dólares', unidad: 'USD' }).expect(201)).body;
+    await http.patch(`/cajon/bolsillos/${usd.id}`).set(auth).send({ grupoId: grupo.id }).expect(200);
+    // El grupo de otra persona no vale, ni un id inválido.
+    await http.patch(`/cajon/bolsillos/${usd.id}`).set(otra).send({ grupoId: grupo.id }).expect(400);
+    await http.post('/cajon/bolsillos').set(otra).send({ nombre: 'X', unidad: 'USD', grupoId: grupo.id }).expect(400);
+    await http.patch(`/cajon/bolsillos/${usd.id}`).set(auth).send({ grupoId: 'x' }).expect(400);
+    await http.patch(`/cajon/grupos/${grupo.id}`).set(otra).send({ nombre: 'Mío' }).expect(404);
+
+    let c = await cajon();
+    expect(c.grupos.map((g: { id: string }) => g.id)).toEqual([grupo.id]);
+    expect(c.bolsillos.filter((b: { grupoId: string }) => b.grupoId === grupo.id)).toHaveLength(2);
+    // El orden es uno solo para grupos y bolsillos.
+    c = (await http.put('/cajon/orden').set(auth).send({ ids: [usd.id, grupo.id] }).expect(200)).body;
+    expect(c.grupos[0].orden).toBe(1);
+    expect(c.bolsillos.find((b: { id: string }) => b.id === usd.id).orden).toBe(0);
+    await http.patch(`/cajon/grupos/${grupo.id}`).set(auth).send({ nombre: 'Inversiones' }).expect(200);
+    await http.delete(`/cajon/grupos/${grupo.id}`).set(auth).expect(200);
+    c = await cajon();
+    expect(c.grupos).toEqual([]);
+    expect(c.bolsillos.find((b: { id: string }) => b.id === btc.id).grupoId).toBeNull();
+    for (const id of [btc.id, usd.id]) await http.delete(`/cajon/bolsillos/${id}`).set(auth).expect(200);
+  });
+
   it('precios de CEDEARs: solo los pedidos, en centavos de peso y sin las versiones en dólares', async () => {
     const filas = [
       { symbol: 'SPY', c: 20960, px_bid: 20920, px_ask: 20980 },

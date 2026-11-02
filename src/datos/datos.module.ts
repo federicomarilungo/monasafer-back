@@ -33,6 +33,8 @@ import { ClienteIa } from '../premium/asistente';
 import {
   Bolsillo,
   BolsilloSchema,
+  GrupoCajon,
+  GrupoCajonSchema,
   MovimientoCajon,
   MovimientoCajonSchema,
 } from '../cajon/esquemas';
@@ -57,6 +59,7 @@ import { ComentariosService } from '../comentarios/comentarios.service';
       { name: UsoIa.name, schema: UsoIaSchema },
       { name: Bolsillo.name, schema: BolsilloSchema },
       { name: MovimientoCajon.name, schema: MovimientoCajonSchema },
+      { name: GrupoCajon.name, schema: GrupoCajonSchema },
       { name: Comentario.name, schema: ComentarioSchema },
     ]),
   ],

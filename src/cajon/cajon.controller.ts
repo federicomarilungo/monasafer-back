@@ -57,6 +57,14 @@ const DECIMALES_MERCADO: Record<MercadoBolsillo, number> = {
   cripto: 8,
 };
 
+/** Id de un grupo del cajón, o null para dejarlo suelto. */
+function grupoId(x: unknown): string | null {
+  if (x === null) return null;
+  if (typeof x !== 'string' || !/^[0-9a-f]{24}$/.test(x))
+    throw new BadRequestException('grupoId: id de un grupo del cajón, o null');
+  return x;
+}
+
 function origen(x: unknown): 'mes' | 'acumulado' {
   if (x !== 'mes' && x !== 'acumulado')
     throw new BadRequestException('origen: mes o acumulado');
@@ -140,6 +148,7 @@ export class CajonController {
         decimales: DECIMALES_MERCADO[mercado],
         cotizacion: null,
         mercado,
+        grupoId: b.grupoId === undefined ? null : grupoId(b.grupoId),
       });
     }
     const decimales = b.decimales === undefined ? 2 : Number(b.decimales);
@@ -151,6 +160,7 @@ export class CajonController {
       unidad: v.texto(b.unidad, 'unidad', 10),
       decimales,
       cotizacion: b.cotizacion === undefined ? null : cotizacion(b.cotizacion),
+      grupoId: b.grupoId === undefined ? null : grupoId(b.grupoId),
     });
   }
 
@@ -167,7 +177,9 @@ export class CajonController {
       unidad?: string;
       decimales?: number;
       cotizacion?: { moneda: string; valor: number } | null;
+      grupoId?: string | null;
     } = {};
+    if (b.grupoId !== undefined) cambios.grupoId = grupoId(b.grupoId);
     if (b.unidad !== undefined)
       cambios.unidad = v.texto(b.unidad, 'unidad', 10);
     if (b.decimales !== undefined) {
@@ -195,6 +207,29 @@ export class CajonController {
     )
       throw new BadRequestException('ids: lista de bolsillos');
     return this.s.ordenar(u, ids as string[]);
+  }
+
+  @Post('grupos')
+  crearGrupo(@UsuarioId() u: string, @Body() body: unknown) {
+    const b = v.objeto(body);
+    return this.s.crearGrupo(u, {
+      nombre: v.texto(b.nombre, 'nombre', 40),
+      emoji: v.texto(b.emoji, 'emoji', 16, false),
+    });
+  }
+
+  @Patch('grupos/:id')
+  editarGrupo(@UsuarioId() u: string, @Param('id') id: string, @Body() body: unknown) {
+    const b = v.objeto(body);
+    const cambios: { nombre?: string; emoji?: string } = {};
+    if (b.nombre !== undefined) cambios.nombre = v.texto(b.nombre, 'nombre', 40);
+    if (b.emoji !== undefined) cambios.emoji = v.texto(b.emoji, 'emoji', 16, false);
+    return this.s.editarGrupo(u, id, cambios);
+  }
+
+  @Delete('grupos/:id')
+  borrarGrupo(@UsuarioId() u: string, @Param('id') id: string) {
+    return this.s.borrarGrupo(u, id);
   }
 
   @Delete('bolsillos/:id')

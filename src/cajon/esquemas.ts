@@ -39,12 +39,29 @@ export class Bolsillo {
   @Prop({ default: false }) archivado: boolean;
   /** Lugar en el cajón (lo elige la persona); empata por fecha de creación. */
   @Prop({ default: 0 }) orden: number;
+  /** Grupo del cajón en el que está (ej. "Cartera IOL" con SPY y GOOGL adentro). */
+  @Prop({ type: Types.ObjectId, default: null }) grupoId: Types.ObjectId | null;
 }
 export const BolsilloSchema = SchemaFactory.createForClass(Bolsillo);
 BolsilloSchema.index(
   { usuarioId: 1, generico: 1 },
   { unique: true, partialFilterExpression: { generico: true } },
 );
+
+/**
+ * Grupo del cajón (Fede, 2/11): junta bolsillos, sobre todo inversiones ("Cartera IOL" con
+ * los índices adentro). No guarda plata: vale lo que sumen sus bolsillos. Comparte el orden
+ * con los bolsillos sueltos.
+ */
+@Schema({ collection: 'grupos_cajon', timestamps: true })
+export class GrupoCajon {
+  @Prop({ type: Types.ObjectId, required: true, index: true })
+  usuarioId: Types.ObjectId;
+  @Prop({ required: true, trim: true }) nombre: string;
+  @Prop({ default: '' }) emoji: string;
+  @Prop({ default: 0 }) orden: number;
+}
+export const GrupoCajonSchema = SchemaFactory.createForClass(GrupoCajon);
 
 export const TIPOS_MOVIMIENTO = [
   'ahorro', // entra desde el saldo

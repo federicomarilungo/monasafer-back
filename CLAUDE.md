@@ -75,6 +75,11 @@ Un bolsillo puede tener `cotizacion {moneda, valor}` (centavos por 1 unidad, pue
 manda sobre la de mercado al valuar el cajón (lo que no cotiza, o el valor propio de Fede).
 - `GET /cajon`, `PUT /cajon/orden {ids}`, `POST/PATCH/DELETE /cajon/bolsillos[/:id]` (solo se borra vacío; PATCH cambia
   nombre, emoji, unidad y `cotizacion`, y `decimales` solo con el bolsillo vacío).
+- Grupos del cajón (Fede, 2/11): `grupos_cajon` `{nombre, emoji, orden}` juntan bolsillos
+  (`grupoId` en el bolsillo, al crear o con PATCH; null lo saca), sobre todo inversiones
+  ("Cartera IOL" con los índices). No guardan plata: valen lo que suman sus bolsillos (lo
+  calcula el front). `POST/PATCH/DELETE /cajon/grupos[/:id]`; borrar deja sus bolsillos
+  sueltos. Comparten el orden con los bolsillos: `PUT /cajon/orden` acepta ids de los dos.
 - `POST /cajon/ahorrar {monto, origen: mes|acumulado, bolsilloId?, cantidad?}`: sin
   bolsillo va a "Sin asignar" (uno por usuario, en su moneda).
 - `POST /cajon/bolsillos/:id/ajustar {cantidad, detalle}`, `.../retirar {cantidad, monto}`,
