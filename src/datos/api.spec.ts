@@ -857,4 +857,28 @@ describe('API de Monasafer', () => {
       .set(auth)
       .expect(404);
   });
+  it('tocar Guardar varias veces mientras guarda crea uno solo (y después se puede repetir)', async () => {
+    const { auth } = await cuenta('apurado@test.com');
+    const gasto = { nombre: 'Pizza', emoji: '🍕', monto: USD(12), tipo: 'puntual', mesInicio: '2026-10' };
+    // Guardar "tarda un ratito", como en prod: los otros toques llegan mientras tanto.
+    const s = app.get(MonasaferService);
+    const original = s.crearGasto.bind(s);
+    const lento = jest.spyOn(s, 'crearGasto').mockImplementation(async (...a) => {
+      await new Promise((r) => setTimeout(r, 300));
+      return original(...a);
+    });
+    const r = await Promise.all(
+      [0, 50, 100].map(async (ms) => {
+        await new Promise((ok) => setTimeout(ok, ms));
+        return http.post('/gastos').set(auth).send(gasto);
+      }),
+    );
+    lento.mockRestore();
+    expect(r.map((x) => x.status)).toEqual([201, 201, 201]);
+    expect(new Set(r.map((x) => x.body.id)).size).toBe(1);
+    expect((await http.get('/gastos').set(auth)).body).toHaveLength(1);
+    // Terminado el primero, el mismo pedido vale de nuevo.
+    await http.post('/gastos').set(auth).send(gasto).expect(201);
+    expect((await http.get('/gastos').set(auth)).body).toHaveLength(2);
+  });
 });

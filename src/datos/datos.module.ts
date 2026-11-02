@@ -1,8 +1,9 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Tokens } from '../auth/tokens';
 import { SESIONES, UsuarioGuard } from '../auth/usuario.guard';
+import { SinDuplicadosInterceptor } from '../auth/sin-duplicados.interceptor';
 import { VerificadorGoogle } from '../auth/google';
 import { Correo } from '../auth/correo';
 import {
@@ -79,6 +80,7 @@ import { ComentariosService } from '../comentarios/comentarios.service';
     VerificadorGoogle,
     Correo,
     { provide: APP_GUARD, useClass: UsuarioGuard },
+    { provide: APP_INTERCEPTOR, useClass: SinDuplicadosInterceptor },
   ],
 })
 export class DatosModule {}

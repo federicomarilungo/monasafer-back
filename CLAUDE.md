@@ -129,6 +129,11 @@ mes + acumulado de meses anteriores.
   (y se reinician los usos gratis). Es el botón 👑 al lado del sonido, para todos (Fede,
   23/10).
 
+Pedidos repetidos: si llega un POST/PUT/PATCH/DELETE idéntico (usuario, URL y body) a otro que
+todavía se está procesando, recibe la misma respuesta y no se hace dos veces
+(`src/auth/sin-duplicados.interceptor.ts`, por los toques repetidos en Guardar). Solo en curso:
+apenas termina, el mismo pedido vale de nuevo.
+
 Login, registro, Google y recupero tienen límite de intentos por IP y por email
 (`src/auth/limite.ts`, en memoria; 429 al pasarse).
 
