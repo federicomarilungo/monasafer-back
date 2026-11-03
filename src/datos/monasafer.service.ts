@@ -28,6 +28,22 @@ function oid(id: string): Types.ObjectId {
   return new Types.ObjectId(id);
 }
 
+/**
+ * Fede (3/11): un gasto que sigue en los meses siguientes no entra en un grupo que termina
+ * antes (el de "solo este mes"): el grupo tiene que existir esos meses también.
+ */
+function cabeEnGrupo(
+  g: { tipo?: string; mesInicio?: string; mesFin?: string | null },
+  grupo: { mesFin?: string | null },
+) {
+  if (!grupo.mesFin) return;
+  const ultimo = g.tipo === 'puntual' ? g.mesInicio : g.mesFin;
+  if (!ultimo || ultimo > grupo.mesFin)
+    throw new BadRequestException(
+      `El grupo termina en ${grupo.mesFin}: para meter un gasto que sigue después, el grupo tiene que existir esos meses también`,
+    );
+}
+
 @Injectable()
 export class MonasaferService implements Sesiones {
   constructor(
@@ -466,7 +482,7 @@ export class MonasaferService implements Sesiones {
   }
 
   async crearGasto(usuarioId: string, g: Partial<GastoEntrada>) {
-    if (g.grupoId) await this.grupoDe(usuarioId, g.grupoId);
+    if (g.grupoId) cabeEnGrupo(g, await this.grupoDe(usuarioId, g.grupoId));
     const creado = await this.gastos.create({
       ...g,
       grupoId: g.grupoId ? oid(g.grupoId) : null,
@@ -492,7 +508,7 @@ export class MonasaferService implements Sesiones {
     // Pasar una reserva a "cargo cada uso" rige desde este mes: en el historial, los meses
     // anteriores siguen consumidos enteros (regla de Fede: editar no toca el pasado).
     const set: Record<string, unknown> = { ...cambios };
-    if (cambios.grupoId !== undefined || cambios.tipo) {
+    if (cambios.grupoId !== undefined || cambios.tipo || cambios.mesFin !== undefined) {
       const antes = await this.gastoDe(usuarioId, gastoId);
       const tipo = cambios.tipo ?? antes.tipo;
       const grupoId = cambios.grupoId !== undefined ? cambios.grupoId : antes.grupoId;
@@ -500,10 +516,18 @@ export class MonasaferService implements Sesiones {
         throw new BadRequestException('Un grupo o una reserva no van adentro de un grupo');
       if (grupoId && String(grupoId) === gastoId)
         throw new BadRequestException('Un gasto no va adentro de sí mismo');
-      if (cambios.grupoId) {
-        await this.grupoDe(usuarioId, cambios.grupoId);
-        set.grupoId = oid(cambios.grupoId);
+      if (grupoId) {
+        const grupo = await this.grupoDe(usuarioId, String(grupoId));
+        cabeEnGrupo(
+          {
+            tipo,
+            mesInicio: cambios.mesInicio ?? antes.mesInicio,
+            mesFin: cambios.mesFin !== undefined ? cambios.mesFin : antes.mesFin,
+          },
+          grupo,
+        );
       }
+      if (cambios.grupoId) set.grupoId = oid(cambios.grupoId);
       // Un grupo que deja de serlo suelta sus gastos: siguen contando, sueltos.
       if (antes.tipo === 'grupo' && tipo !== 'grupo')
         await this.gastos.updateMany({ usuarioId: oid(usuarioId), grupoId: antes._id }, { $set: { grupoId: null } });

@@ -860,10 +860,21 @@ describe('API de Monasafer', () => {
     expect((await http.get('/gastos').set(auth)).body).toHaveLength(0);
     await http.post(`/gastos/${visa.id}/restaurar`).set(auth).expect(200);
     expect((await http.get('/gastos').set(auth)).body).toHaveLength(3);
+    // Fede, 3/11: un grupo de un solo mes no acepta un gasto que sigue los meses siguientes.
+    const cumple = (
+      await http.post('/gastos').set(auth)
+        .send({ nombre: 'Cumple', monto: 0, tipo: 'grupo', mesInicio: '2026-10', mesFin: '2026-10' }).expect(201)
+    ).body;
+    await nuevo({ nombre: 'Netflix', monto: USD(10), tipo: 'fijo', mesFin: null, grupoId: cumple.id }).expect(400);
+    await nuevo({ nombre: 'Cuotas', monto: USD(10), tipo: 'fijo', mesFin: '2026-12', grupoId: cumple.id }).expect(400);
+    await nuevo({ nombre: 'Torta', monto: USD(10), grupoId: cumple.id }).expect(201);
+    await http.patch(`/gastos/${zapas.id}`).set(auth).send({ grupoId: cumple.id }).expect(400);
+    await http.patch(`/gastos/${zapas.id}`).set(auth).send({ mesFin: null }).expect(200);
     // Sacar un gasto del grupo: cuenta suelto.
     await http.patch(`/gastos/${cena.id}`).set(auth).send({ grupoId: null }).expect(200);
     r = await oct();
-    expect(r.gastos.map((l: { gastoId: string }) => l.gastoId).sort()).toEqual([visa.id, cena.id].sort());
+    expect(r.gastos.map((l: { gastoId: string }) => l.gastoId)).toEqual(expect.arrayContaining([visa.id, cena.id]));
+    expect(r.gastos.find((l: { gastoId: string }) => l.gastoId === visa.id).items.map((i: { gastoId: string }) => i.gastoId)).toEqual([zapas.id]);
   });
 
   it('un usuario no puede ver ni tocar lo de otro', async () => {

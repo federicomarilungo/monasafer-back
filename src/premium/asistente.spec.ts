@@ -43,6 +43,10 @@ describe('asistente: interpretar lo que propone el modelo', () => {
       mes_inicio: '2026-11', cantidad_meses: null, modo_reserva: null, grupo_id: 'visa',
     }, gastos, hoy);
     expect(cena).toMatchObject({ gasto: { tipo: 'puntual', grupoId: 'visa', mesInicio: '2026-11' } });
+    // Un grupo de un solo mes no acepta cuotas que siguen después (Fede, 3/11).
+    const cumple = [...gastos, { id: 'cumple', nombre: 'Cumple', emoji: '🎁', tipo: 'grupo', monto: 0, mesInicio: '2026-10', mesFin: '2026-10', pagadoEsteMes: false }];
+    expect(interpretarHerramienta('crear_gasto', { nombre: 'Parlante', monto_mensual: 20, tipo: 'fijo', mes_inicio: '2026-10', cantidad_meses: 3, grupo_id: 'cumple' }, cumple, hoy)).toBeNull();
+    expect(interpretarHerramienta('crear_gasto', { nombre: 'Torta', monto_mensual: 20, tipo: 'puntual', mes_inicio: '2026-10', grupo_id: 'cumple' }, cumple, hoy)).not.toBeNull();
     // Un grupo que no es grupo, o una reserva adentro: se descarta.
     expect(interpretarHerramienta('crear_gasto', { nombre: 'X', monto_mensual: 5, tipo: 'puntual', grupo_id: 'luz' }, gastos, hoy)).toBeNull();
     expect(interpretarHerramienta('crear_gasto', { nombre: 'X', monto_mensual: 5, tipo: 'reserva', grupo_id: 'visa' }, gastos, hoy)).toBeNull();

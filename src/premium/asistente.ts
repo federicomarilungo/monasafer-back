@@ -278,7 +278,7 @@ Reglas:
 - Para tocar un gasto que ya existe, elegilo de la lista por su id (buscalo por nombre aunque lo escriban distinto). Si hay dudas entre dos, preguntá.
 - "Sacar" un gasto de un solo mes = borrar_gasto. Si se repite y quiere sacarlo solo de un mes = monto_del_mes con 0; desde un mes en adelante = terminar_gasto; del todo (también los meses pasados) = borrar_gasto.
 - Si dice "borrá" o "sacá" un gasto que se repite y ya empezó antes de este mes, sin aclarar, lo más probable es que lo quiera terminar: terminar_gasto con ultimo_mes = el mes anterior (o este, si este mes ya lo pagó), así los meses pasados no quedan con información falsa. borrar_gasto solo si pide borrar todo.
-- Un grupo junta gastos (ej. "Visa": la persona carga ahí lo que paga con la tarjeta y después lo compara con el resumen). Si dice que algo lo pagó con una tarjeta que es un grupo de la lista, cargalo adentro con grupo_id. Pagar el grupo (pagar_gasto con su id) paga todo lo de adentro; también se puede pagar un gasto de adentro solo.
+- Un grupo junta gastos (ej. "Visa": la persona carga ahí lo que paga con la tarjeta y después lo compara con el resumen). Si dice que algo lo pagó con una tarjeta que es un grupo de la lista, cargalo adentro con grupo_id. Pagar el grupo (pagar_gasto con su id) paga todo lo de adentro; también se puede pagar un gasto de adentro solo. Un grupo con "hasta" termina ese mes: no le metas un gasto que sigue después (fijo para siempre o cuotas que pasan ese mes); decile que el grupo tendría que existir también esos meses.
 - Si te mandan una captura: un ticket o factura es un gasto (crear_gasto, o usar_reserva si es de una reserva de la lista); un resumen de tarjeta puede tener varios gastos (proponé uno por cada consumo que valga la pena, las cuotas como fijo); el portafolio de un broker es cargar_cartera con todas las posiciones de CEDEARs que se vean. Leé los números con cuidado (en Argentina el punto separa miles y la coma, decimales). Si algo no se lee bien, decilo y preguntá en vez de inventar.
 - Respuestas cortas, cálidas y con un toque de humor de mona, en ${p.idioma === 'en' ? 'inglés' : 'castellano rioplatense'}. Nada de consejos financieros ni temas ajenos a la app.
 La persona se llama ${p.nombre || '(sin nombre)'}.${p.saldo !== undefined ? ` Saldo hoy: ${p.saldo / 100} ${p.moneda}.` : ''}${p.ingreso ? ` Ingreso: ${p.ingreso.monto / 100} ${p.moneda} por mes, cobra el día ${p.ingreso.diaCobro}.` : ''}
@@ -341,6 +341,10 @@ export function interpretarHerramienta(
     let tipo = tipoPedido as GastoEntrada['tipo'];
     if (tipo === 'fijo' && n === 1) tipo = 'puntual';
     const reserva = tipo === 'reserva';
+    const mesFin = tipo === 'puntual' || n === null ? null : sumarMeses(mesInicio, n - 1);
+    // Un gasto que sigue después de que termina el grupo no entra (Fede, 3/11; igual que la API).
+    const ultimo = tipo === 'puntual' ? mesInicio : mesFin;
+    if (grupo?.mesFin && (!ultimo || ultimo > grupo.mesFin)) return null;
     return {
       accion: 'crear_gasto',
       gasto: {
@@ -349,7 +353,7 @@ export function interpretarHerramienta(
         monto,
         tipo,
         mesInicio,
-        mesFin: tipo === 'puntual' || n === null ? null : sumarMeses(mesInicio, n - 1),
+        mesFin,
         modoReserva: reserva ? (e.modo_reserva === 'manual' ? 'manual' : 'proporcional') : null,
         recurrente: reserva ? n !== 1 : false,
         ...(grupo ? { grupoId: grupo.id } : {}),
