@@ -759,6 +759,58 @@ describe('API de Monasafer', () => {
     await http.post('/cuentas/traspasar').set(otro.auth).send({ desde: pesos.id, hacia: 'principal', monto: 1, montoEntra: 1 }).expect(404);
   });
 
+  // Fede, 3/11: "cuando marcás pago un gasto, que pregunte de qué cuenta sacar la plata".
+  it('pagar y usar reservas desde otra cuenta, y desmarcar la devuelve ahí', async () => {
+    const { auth } = await cuenta('pagar-cuenta@test.com');
+    await http.patch('/perfil').set(auth).send({ saldo: USD(1000) }).expect(200);
+    const mp = (await http.post('/cuentas').set(auth).send({ nombre: 'MP', moneda: 'USD', saldo: USD(200) }).expect(201)).body;
+    const pesos = (await http.post('/cuentas').set(auth).send({ nombre: 'Pesos', moneda: 'ARS', saldo: 50000000 }).expect(201)).body;
+    const nuevo = (b: object) => http.post('/gastos').set(auth).send({ tipo: 'puntual', mesInicio: '2026-10', ...b });
+    const luz = (await nuevo({ nombre: 'Luz', monto: USD(50) }).expect(201)).body;
+    const gas = (await nuevo({ nombre: 'Gas', monto: USD(30) }).expect(201)).body;
+    const super_ = (await nuevo({ nombre: 'Súper', monto: USD(100), tipo: 'reserva', mesFin: '2026-10' }).expect(201)).body;
+    const saldos = async () => {
+      const d = (await http.get('/datos').set(auth).expect(200)).body;
+      return [d.perfil.saldo, ...d.cuentas.map((c: { saldo: number }) => c.saldo)];
+    };
+
+    // Misma moneda: sale el monto de esa cuenta; la principal no cambia.
+    await http.post(`/gastos/${luz.id}/meses/2026-10/pagar`).set(auth).send({ cuentaId: mp.id }).expect(200);
+    expect(await saldos()).toEqual([USD(1000), USD(150), 50000000]);
+    // Otra moneda: hace falta lo que sale en esa moneda.
+    await http.post(`/gastos/${gas.id}/meses/2026-10/pagar`).set(auth).send({ cuentaId: pesos.id }).expect(400);
+    await http.post(`/gastos/${gas.id}/meses/2026-10/pagar`).set(auth).send({ cuentaId: pesos.id, cantidad: 4500000 }).expect(200);
+    expect(await saldos()).toEqual([USD(1000), USD(150), 45500000]);
+    // El balance del mes sigue contando el gasto como pagado.
+    const r = (await http.get('/meses/2026-10').set(auth).expect(200)).body;
+    expect(r.gastos.find((l: { gastoId: string }) => l.gastoId === gas.id).pagado).toBe(true);
+    // Desmarcar devuelve a la cuenta de donde salió, en su moneda.
+    await http.delete(`/gastos/${gas.id}/meses/2026-10/pagar`).set(auth).expect(200);
+    expect(await saldos()).toEqual([USD(1000), USD(150), 50000000]);
+    // Sin cuenta (o 'principal'), como siempre.
+    await http.post(`/gastos/${gas.id}/meses/2026-10/pagar`).set(auth).send({ cuentaId: 'principal' }).expect(200);
+    expect(await saldos()).toEqual([USD(970), USD(150), 50000000]);
+
+    // Usos de reserva: igual.
+    const uso = (await http.post(`/gastos/${super_.id}/usos`).set(auth).send({ mes: '2026-10', monto: USD(20), cuentaId: pesos.id, cantidad: 3000000 }).expect(201)).body;
+    expect(uso.cuentaId).toBe(pesos.id);
+    expect(await saldos()).toEqual([USD(970), USD(150), 47000000]);
+    await http.delete(`/usos/${uso.id}`).set(auth).expect(200);
+    expect(await saldos()).toEqual([USD(970), USD(150), 50000000]);
+
+    // Si la cuenta se borró, desmarcar devuelve a la principal.
+    await http.delete(`/gastos/${luz.id}/meses/2026-10/pagar`).set(auth).expect(200);
+    await http.post(`/gastos/${luz.id}/meses/2026-10/pagar`).set(auth).send({ cuentaId: mp.id }).expect(200);
+    await http.delete(`/cuentas/${mp.id}`).set(auth).expect(200);
+    await http.delete(`/gastos/${luz.id}/meses/2026-10/pagar`).set(auth).expect(200);
+    expect(await saldos()).toEqual([USD(1020), 50000000]);
+
+    // Nadie paga desde la cuenta de otro.
+    const otro = await cuenta('otro-pagar@test.com');
+    const suyo = (await http.post('/gastos').set(otro.auth).send({ nombre: 'X', monto: 1, tipo: 'puntual', mesInicio: '2026-10' }).expect(201)).body;
+    await http.post(`/gastos/${suyo.id}/meses/2026-10/pagar`).set(otro.auth).send({ cuentaId: pesos.id, cantidad: 1 }).expect(404);
+  });
+
   // Fede, 2/11: "un gasto tipo grupo, ej. la tarjeta: le cargo gastos adentro y lo pago
   // completo o cada gasto por separado, como quiera".
   it('grupos: la Visa con gastos adentro, pagar uno o todo, borrar y deshacer', async () => {

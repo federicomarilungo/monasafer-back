@@ -92,6 +92,10 @@ export class MesGasto {
   @Prop({ type: Date, default: null }) pagadoEn: Date | null;
   /** Monto descontado del saldo al pagar (para devolverlo si se desmarca). */
   @Prop({ default: 0 }) montoPagado: number;
+  /** De qué cuenta salió el pago (null: la principal, que es `Usuario.saldo`). */
+  @Prop({ type: Types.ObjectId, default: null }) cuentaId: Types.ObjectId | null;
+  /** Lo que salió en la moneda de esa cuenta (`montoPagado` es lo mismo en la de la persona). */
+  @Prop({ type: Number, default: null }) cantidadPagada: number | null;
   @Prop({ type: Number, default: null }) montoDelMes: number | null;
 }
 export const MesGastoSchema = SchemaFactory.createForClass(MesGasto);
@@ -105,6 +109,9 @@ export class UsoReservaDb {
   @Prop({ required: true }) mes: string;
   @Prop({ required: true }) monto: number;
   @Prop({ default: '' }) nota: string;
+  /** De qué cuenta salió (null: la principal) y cuánto en su moneda. */
+  @Prop({ type: Types.ObjectId, default: null }) cuentaId: Types.ObjectId | null;
+  @Prop({ type: Number, default: null }) cantidad: number | null;
 }
 export const UsoReservaSchema = SchemaFactory.createForClass(UsoReservaDb);
 

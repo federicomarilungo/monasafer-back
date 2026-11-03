@@ -414,6 +414,37 @@ export class MonasaferService implements Sesiones {
     return c;
   }
 
+  /**
+   * De dónde sale (o adónde vuelve) la plata de un pago o un uso: sin cuenta, la principal;
+   * con cuenta, `cantidad` es lo mismo que `monto` en su moneda (el front lo convierte con la
+   * cotización del día; en la misma moneda es el monto).
+   */
+  private async origenDelPago(
+    usuarioId: string,
+    monedaUsuario: string,
+    cuentaId: string | null,
+    monto: number,
+    cantidad: number | null,
+  ) {
+    if (!cuentaId || cuentaId === 'principal') return { cuenta: null, cantidad: null };
+    const cuenta = await this.cuentaDe(usuarioId, cuentaId);
+    if (cuenta.moneda === monedaUsuario) cantidad = monto;
+    if (cantidad == null || cantidad < 0 || (monto > 0 && cantidad === 0))
+      throw new BadRequestException('cantidad: lo que sale en la moneda de la cuenta');
+    return { cuenta, cantidad };
+  }
+
+  /** Suma (o resta, con delta negativo) a la cuenta, o a la principal si no hay. */
+  private moverSaldo(
+    usuarioId: Types.ObjectId,
+    cuentaId: Types.ObjectId | null | undefined,
+    delta: number,
+  ) {
+    return cuentaId
+      ? this.cuentas.updateOne({ _id: cuentaId }, { $inc: { saldo: delta } })
+      : this.usuarios.updateOne({ _id: usuarioId }, { $inc: { saldo: delta } });
+  }
+
   private cuentaPublica(c: Cuenta & { _id: Types.ObjectId }) {
     return {
       id: String(c._id),
@@ -567,7 +598,13 @@ export class MonasaferService implements Sesiones {
    * falta (lo estimado o lo cargado, menos lo que ya se pagó de adentro) y cubre sus gastos;
    * un gasto de un grupo ya pagado entero no se paga de nuevo.
    */
-  async pagar(usuarioId: string, gastoId: string, mes: string) {
+  async pagar(
+    usuarioId: string,
+    gastoId: string,
+    mes: string,
+    cuentaId: string | null = null,
+    cantidad: number | null = null,
+  ) {
     if (mes < mesDe(this.hoy()))
       throw new BadRequestException('No se pagan meses pasados');
     const g = await this.gastoDe(usuarioId, gastoId);
@@ -584,20 +621,25 @@ export class MonasaferService implements Sesiones {
       const r = resumenDelMes(await this.datos(usuarioId), this.hoy(), mes);
       monto = r?.gastos.find((l) => l.gastoId === gastoId)?.pendiente ?? 0;
     }
+    const u = await this.usuario(usuarioId);
+    const origen = await this.origenDelPago(usuarioId, u.moneda, cuentaId, monto, cantidad);
     const r = await this.meses.updateOne(
       { gastoId: g._id, mes, pagado: { $ne: true } },
       {
-        $set: { pagado: true, pagadoEn: new Date(), montoPagado: monto },
+        $set: {
+          pagado: true,
+          pagadoEn: new Date(),
+          montoPagado: monto,
+          cuentaId: origen.cuenta?._id ?? null,
+          cantidadPagada: origen.cantidad,
+        },
         $setOnInsert: { usuarioId: g.usuarioId },
       },
       { upsert: true },
     );
     if (!r.modifiedCount && !r.upsertedCount)
       throw new ConflictException('Ya estaba pagado');
-    await this.usuarios.updateOne(
-      { _id: g.usuarioId },
-      { $inc: { saldo: -monto } },
-    );
+    await this.moverSaldo(g.usuarioId, origen.cuenta?._id, -(origen.cantidad ?? monto));
     return this.perfil(usuarioId);
   }
 
@@ -610,12 +652,26 @@ export class MonasaferService implements Sesiones {
       throw new ConflictException('El grupo está pagado entero: desmarcá primero el grupo');
     const estado = await this.meses.findOneAndUpdate(
       { gastoId: g._id, mes, pagado: true },
-      { $set: { pagado: false, pagadoEn: null, montoPagado: 0 } },
+      {
+        $set: {
+          pagado: false,
+          pagadoEn: null,
+          montoPagado: 0,
+          cuentaId: null,
+          cantidadPagada: null,
+        },
+      },
     );
     if (!estado) throw new ConflictException('No estaba pagado');
-    await this.usuarios.updateOne(
-      { _id: g.usuarioId },
-      { $inc: { saldo: estado.montoPagado } },
+    // Vuelve a la cuenta de donde salió (si la borraron, a la principal en su valor).
+    const vuelve =
+      estado.cuentaId && (await this.cuentas.exists({ _id: estado.cuentaId, archivada: false }))
+        ? estado.cuentaId
+        : null;
+    await this.moverSaldo(
+      g.usuarioId,
+      vuelve,
+      vuelve ? (estado.cantidadPagada ?? estado.montoPagado) : estado.montoPagado,
     );
     return this.perfil(usuarioId);
   }
@@ -628,22 +684,32 @@ export class MonasaferService implements Sesiones {
     mes: string,
     monto: number,
     nota: string,
+    cuentaId: string | null = null,
+    cantidad: number | null = null,
   ) {
     const g = await this.gastoDe(usuarioId, gastoId);
     if (g.tipo !== 'reserva')
       throw new BadRequestException('Solo las reservas tienen usos');
+    const u = await this.usuario(usuarioId);
+    const origen = await this.origenDelPago(usuarioId, u.moneda, cuentaId, monto, cantidad);
     const uso = await this.usos.create({
       usuarioId: g.usuarioId,
       gastoId: g._id,
       mes,
       monto,
       nota,
+      cuentaId: origen.cuenta?._id ?? null,
+      cantidad: origen.cantidad,
     });
-    await this.usuarios.updateOne(
-      { _id: g.usuarioId },
-      { $inc: { saldo: -monto } },
-    );
-    return { id: uso.id, gastoId, mes, monto, nota };
+    await this.moverSaldo(g.usuarioId, origen.cuenta?._id, -(origen.cantidad ?? monto));
+    return {
+      id: uso.id,
+      gastoId,
+      mes,
+      monto,
+      nota,
+      cuentaId: origen.cuenta ? String(origen.cuenta._id) : null,
+    };
   }
 
   async listarUsos(usuarioId: string, gastoId: string, mes: string) {
@@ -657,6 +723,7 @@ export class MonasaferService implements Sesiones {
       mes: u.mes,
       monto: u.monto,
       nota: u.nota,
+      cuentaId: u.cuentaId ? String(u.cuentaId) : null,
     }));
   }
 
@@ -666,10 +733,11 @@ export class MonasaferService implements Sesiones {
       usuarioId: oid(usuarioId),
     });
     if (!uso) throw new NotFoundException();
-    await this.usuarios.updateOne(
-      { _id: uso.usuarioId },
-      { $inc: { saldo: uso.monto } },
-    );
+    const vuelve =
+      uso.cuentaId && (await this.cuentas.exists({ _id: uso.cuentaId, archivada: false }))
+        ? uso.cuentaId
+        : null;
+    await this.moverSaldo(uso.usuarioId, vuelve, vuelve ? (uso.cantidad ?? uso.monto) : uso.monto);
     return { ok: true };
   }
 

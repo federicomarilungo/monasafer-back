@@ -293,8 +293,17 @@ export class MonasaferController {
     @UsuarioId() u: string,
     @Param('id') id: string,
     @Param('mes') mes: string,
+    @Body() body: unknown,
   ) {
-    return this.s.pagar(u, id, v.mes(mes));
+    // Body opcional: {cuentaId, cantidad} si sale de otra cuenta (Fede, 3/11).
+    const b = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    return this.s.pagar(
+      u,
+      id,
+      v.mes(mes),
+      b.cuentaId ? v.texto(b.cuentaId, 'cuentaId', 40) : null,
+      b.cantidad == null ? null : v.monto(b.cantidad, 'cantidad'),
+    );
   }
 
   @Delete('gastos/:id/meses/:mes/pagar')
@@ -328,6 +337,8 @@ export class MonasaferController {
       v.mes(b.mes),
       v.monto(b.monto),
       v.texto(b.nota, 'nota', 120, false),
+      b.cuentaId ? v.texto(b.cuentaId, 'cuentaId', 40) : null,
+      b.cantidad == null ? null : v.monto(b.cantidad, 'cantidad'),
     );
   }
 
