@@ -65,6 +65,12 @@ export class GastoDb {
   @Prop({ required: true, enum: ['puntual', 'fijo', 'reserva', 'grupo'] }) tipo: string;
   /** Grupo (otro gasto de tipo `grupo`, ej. la Visa) en el que está cargado este gasto. */
   @Prop({ type: Types.ObjectId, default: null, index: true }) grupoId: Types.ObjectId | null;
+  /**
+   * Solo grupos: si tiene marca, el grupo es una tarjeta de crédito (Fede, 4/11). Lo de
+   * adentro no se paga por separado: se paga el total.
+   */
+  @Prop({ type: String, default: null, enum: ['visa', 'mastercard', 'amex', 'otra', null] })
+  tarjeta: string | null;
   @Prop({ required: true }) mesInicio: string;
   @Prop({ type: String, default: null }) mesFin: string | null;
   @Prop({ type: String, default: null, enum: ['proporcional', 'manual', null] })

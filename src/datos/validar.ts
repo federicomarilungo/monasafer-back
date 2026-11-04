@@ -64,6 +64,9 @@ export function clave(v: unknown): string {
   return v;
 }
 
+export const TARJETAS = ['visa', 'mastercard', 'amex', 'otra'] as const;
+export type Tarjeta = (typeof TARJETAS)[number];
+
 export interface GastoEntrada {
   nombre: string;
   emoji: string;
@@ -71,6 +74,8 @@ export interface GastoEntrada {
   tipo: 'puntual' | 'fijo' | 'reserva' | 'grupo';
   /** Id del grupo en el que va (null: suelto). */
   grupoId?: string | null;
+  /** Solo grupos: marca de la tarjeta de crédito (null: un grupo común). */
+  tarjeta?: Tarjeta | null;
   mesInicio: string;
   mesFin: string | null;
   modoReserva: 'proporcional' | 'manual' | null;
@@ -124,6 +129,13 @@ export function gasto(body: unknown, parcial = false): Partial<GastoEntrada> {
       throw new BadRequestException('grupoId: id de un gasto de tipo grupo, o null');
     out.grupoId = b.grupoId as string | null;
   }
+  if (tiene('tarjeta')) {
+    if (b.tarjeta !== null && !TARJETAS.includes(b.tarjeta as Tarjeta))
+      throw new BadRequestException('tarjeta: visa, mastercard, amex, otra o null');
+    out.tarjeta = b.tarjeta as Tarjeta | null;
+  }
+  if (out.tarjeta && out.tipo && out.tipo !== 'grupo')
+    throw new BadRequestException('Solo un grupo puede ser una tarjeta');
   if (out.tipo === 'grupo' || out.tipo === 'reserva') {
     if (out.grupoId) throw new BadRequestException('Un grupo o una reserva no van adentro de un grupo');
   }

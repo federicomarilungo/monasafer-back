@@ -508,9 +508,12 @@ export class MonasaferService implements Sesiones {
     // Pasar una reserva a "cargo cada uso" rige desde este mes: en el historial, los meses
     // anteriores siguen consumidos enteros (regla de Fede: editar no toca el pasado).
     const set: Record<string, unknown> = { ...cambios };
-    if (cambios.grupoId !== undefined || cambios.tipo || cambios.mesFin !== undefined) {
+    if (cambios.grupoId !== undefined || cambios.tipo || cambios.mesFin !== undefined || cambios.tarjeta) {
       const antes = await this.gastoDe(usuarioId, gastoId);
       const tipo = cambios.tipo ?? antes.tipo;
+      if (cambios.tarjeta && tipo !== 'grupo')
+        throw new BadRequestException('Solo un grupo puede ser una tarjeta');
+      if (tipo !== 'grupo') set.tarjeta = null;
       const grupoId = cambios.grupoId !== undefined ? cambios.grupoId : antes.grupoId;
       if (grupoId && (tipo === 'grupo' || tipo === 'reserva'))
         throw new BadRequestException('Un grupo o una reserva no van adentro de un grupo');
@@ -639,6 +642,9 @@ export class MonasaferService implements Sesiones {
     if (g.grupoId) {
       const grupo = await this.meses.findOne({ gastoId: g.grupoId, mes, pagado: true }).lean();
       if (grupo) throw new ConflictException('Ya pagaste el grupo entero');
+      // Fede, 4/11: de una tarjeta se paga el total, no cada compra.
+      if (await this.gastos.exists({ _id: g.grupoId, tarjeta: { $ne: null } }))
+        throw new ConflictException('De una tarjeta se paga el total, no cada compra');
     }
     let monto = estado?.montoDelMes ?? montoBase(this.gastoPublico(g), mes);
     if (g.tipo === 'grupo') {
@@ -939,6 +945,7 @@ export class MonasaferService implements Sesiones {
       monto: g.monto,
       tipo: g.tipo as 'puntual' | 'fijo' | 'reserva' | 'grupo',
       grupoId: g.grupoId ? String(g.grupoId) : null,
+      ...(g.tipo === 'grupo' && g.tarjeta ? { tarjeta: g.tarjeta } : {}),
       mesInicio: g.mesInicio,
       mesFin: g.mesFin,
       modoReserva: (g.modoReserva ?? undefined) as

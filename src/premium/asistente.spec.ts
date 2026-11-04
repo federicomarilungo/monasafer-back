@@ -32,6 +32,21 @@ describe('asistente: interpretar lo que propone el modelo', () => {
     expect(interpretarHerramienta('crear_gasto', { nombre: 'X', monto_mensual: 0, tipo: 'fijo' }, gastos, hoy)).toBeNull();
   });
 
+  it('tarjetas: crear una con marca; lo de adentro no se paga suelto', () => {
+    const amex = interpretarHerramienta('crear_gasto', {
+      nombre: 'Amex', emoji: '💳', monto_mensual: 0, tipo: 'grupo', tarjeta: 'amex',
+      mes_inicio: '2026-10', cantidad_meses: null, modo_reserva: null, grupo_id: null,
+    }, gastos, hoy);
+    expect(amex).toMatchObject({ gasto: { tipo: 'grupo', tarjeta: 'amex', mesFin: null } });
+    const conTarjeta: GastoContexto[] = [
+      ...gastos,
+      { id: 'master', nombre: 'Master', emoji: '💳', tipo: 'grupo', tarjeta: 'mastercard', monto: 0, mesInicio: '2026-10', mesFin: null, pagadoEsteMes: false },
+      { id: 'tele', nombre: 'Tele', emoji: '📺', tipo: 'puntual', grupoId: 'master', monto: 5000, mesInicio: '2026-10', mesFin: null, pagadoEsteMes: false },
+    ];
+    expect(interpretarHerramienta('pagar_gasto', { gasto_id: 'tele' }, conTarjeta, hoy)).toBeNull();
+    expect(interpretarHerramienta('pagar_gasto', { gasto_id: 'master' }, conTarjeta, hoy)).toMatchObject({ accion: 'pagar', gastoId: 'master' });
+  });
+
   it('grupos: crear la Visa sin estimado y cargarle un gasto adentro', () => {
     const visa = interpretarHerramienta('crear_gasto', {
       nombre: 'Visa', emoji: '💳', monto_mensual: 0, tipo: 'grupo',

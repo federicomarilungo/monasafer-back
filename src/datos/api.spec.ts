@@ -877,6 +877,38 @@ describe('API de Monasafer', () => {
     expect(r.gastos.find((l: { gastoId: string }) => l.gastoId === visa.id).items.map((i: { gastoId: string }) => i.gastoId)).toEqual([zapas.id]);
   });
 
+  // Fede, 4/11: una tarjeta es un grupo en el que no se paga cada compra, solo el total.
+  it('tarjetas: un grupo con marca, se paga el total y no cada compra', async () => {
+    const { auth } = await cuenta('tarjetas@test.com');
+    await http.patch('/perfil').set(auth).send({ saldo: USD(1000) }).expect(200);
+    const visa = (
+      await http.post('/gastos').set(auth)
+        .send({ nombre: 'Visa', emoji: '💳', monto: 0, tipo: 'grupo', mesInicio: '2026-10', tarjeta: 'visa' })
+        .expect(201)
+    ).body;
+    expect(visa).toMatchObject({ tipo: 'grupo', tarjeta: 'visa', mesFin: null });
+    await http.post('/gastos').set(auth)
+      .send({ nombre: 'X', monto: 1, tipo: 'fijo', mesInicio: '2026-10', tarjeta: 'visa' }).expect(400);
+    await http.post('/gastos').set(auth)
+      .send({ nombre: 'X', monto: 0, tipo: 'grupo', mesInicio: '2026-10', tarjeta: 'diners' }).expect(400);
+    // Lo que pagaste con la tarjeta hoy entra el mes que viene.
+    const tele = (
+      await http.post('/gastos').set(auth)
+        .send({ nombre: 'Tele', monto: USD(50), tipo: 'fijo', mesInicio: '2026-11', mesFin: '2027-01', grupoId: visa.id })
+        .expect(201)
+    ).body;
+    await http.post(`/gastos/${tele.id}/meses/2026-11/pagar`).set(auth).expect(409);
+    const nov = (await http.get('/meses/2026-11').set(auth).expect(200)).body;
+    expect(nov.gastos.find((l: { gastoId: string }) => l.gastoId === visa.id)).toMatchObject({ sumaItems: USD(50), pendiente: USD(50) });
+    const p = await http.post(`/gastos/${visa.id}/meses/2026-11/pagar`).set(auth).expect(200);
+    expect(p.body.saldo).toBe(USD(950));
+    // Cambiar la marca, o volverla un grupo común (ahí sí se paga cada cosa).
+    expect((await http.patch(`/gastos/${visa.id}`).set(auth).send({ tarjeta: 'amex' }).expect(200)).body.tarjeta).toBe('amex');
+    const grupo = (await http.patch(`/gastos/${visa.id}`).set(auth).send({ tarjeta: null }).expect(200)).body;
+    expect(grupo.tarjeta).toBeUndefined();
+    await http.post(`/gastos/${tele.id}/meses/2026-12/pagar`).set(auth).expect(200);
+  });
+
   it('un usuario no puede ver ni tocar lo de otro', async () => {
     const a = await cuenta('a@test.com');
     const b = await cuenta('b@test.com');

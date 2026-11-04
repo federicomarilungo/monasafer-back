@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { mesDe, sumarMeses, esMesValido } from '../motor';
-import { GastoEntrada } from '../datos/validar';
+import { GastoEntrada, TARJETAS, Tarjeta } from '../datos/validar';
 
 // Asistente de carga (S3): Claude propone, la persona confirma con un toque. Acá van el
 // prompt, las herramientas y la validación de lo que devuelve; nada de Nest ni Mongo.
@@ -41,6 +41,8 @@ export interface GastoContexto {
   pagadoEsteMes: boolean;
   /** Grupo (ej. la Visa) en el que está cargado. */
   grupoId?: string | null;
+  /** Solo grupos: marca si es una tarjeta de crédito. */
+  tarjeta?: string | null;
 }
 
 export type Propuesta =
@@ -76,6 +78,11 @@ export const HERRAMIENTAS: Anthropic.Tool[] = [
           type: 'string',
           enum: ['puntual', 'fijo', 'reserva', 'grupo'],
           description: 'puntual = una vez; fijo = se repite cada mes; reserva = presupuesto para ir gastando (súper, nafta); grupo = junta gastos adentro, como el resumen de una tarjeta (monto_mensual = lo que estima, 0 si no sabe)',
+        },
+        tarjeta: {
+          type: ['string', 'null'],
+          enum: ['visa', 'mastercard', 'amex', 'otra', null],
+          description: 'Solo tipo grupo: si es una tarjeta de crédito, su marca (cantidad_meses null). null = grupo común',
         },
         grupo_id: {
           type: ['string', 'null'],
@@ -265,7 +272,7 @@ export function promptSistema(p: {
     ? p.gastos
         .map(
           (g) =>
-            `- id=${g.id} | ${g.emoji} ${g.nombre} | ${g.tipo}${g.tipo === 'grupo' ? ' (estimado)' : ''} | ${g.monto / 100} ${p.moneda} | desde ${g.mesInicio}${g.mesFin ? ` hasta ${g.mesFin}` : ''}${g.tipo !== 'reserva' ? (g.pagadoEsteMes ? ' | pagado este mes' : ' | sin pagar este mes') : ''}${g.grupoId ? ` | adentro del grupo id=${g.grupoId}` : ''}`,
+            `- id=${g.id} | ${g.emoji} ${g.nombre} | ${g.tipo}${g.tarjeta ? ` tarjeta de crédito ${g.tarjeta}` : ''}${g.tipo === 'grupo' ? ' (estimado)' : ''} | ${g.monto / 100} ${p.moneda} | desde ${g.mesInicio}${g.mesFin ? ` hasta ${g.mesFin}` : ''}${g.tipo !== 'reserva' ? (g.pagadoEsteMes ? ' | pagado este mes' : ' | sin pagar este mes') : ''}${g.grupoId ? ` | adentro del grupo id=${g.grupoId}` : ''}`,
         )
         .join('\n')
     : '(todavía no cargó gastos)';
@@ -279,6 +286,7 @@ Reglas:
 - "Sacar" un gasto de un solo mes = borrar_gasto. Si se repite y quiere sacarlo solo de un mes = monto_del_mes con 0; desde un mes en adelante = terminar_gasto; del todo (también los meses pasados) = borrar_gasto.
 - Si dice "borrá" o "sacá" un gasto que se repite y ya empezó antes de este mes, sin aclarar, lo más probable es que lo quiera terminar: terminar_gasto con ultimo_mes = el mes anterior (o este, si este mes ya lo pagó), así los meses pasados no quedan con información falsa. borrar_gasto solo si pide borrar todo.
 - Un grupo junta gastos (ej. "Visa": la persona carga ahí lo que paga con la tarjeta y después lo compara con el resumen). Si dice que algo lo pagó con una tarjeta que es un grupo de la lista, cargalo adentro con grupo_id. Pagar el grupo (pagar_gasto con su id) paga todo lo de adentro; también se puede pagar un gasto de adentro solo. Un grupo con "hasta" termina ese mes: no le metas un gasto que sigue después (fijo para siempre o cuotas que pasan ese mes); decile que el grupo tendría que existir también esos meses.
+- Una tarjeta de crédito es un grupo con marca: se carga lo que la persona compró con ella y se paga el total, nunca cada compra por separado (no uses pagar_gasto con algo de adentro). Lo que paga hoy con la tarjeta lo más probable es que venga en el resumen del mes que viene: si no dice otra cosa, mes_inicio = el mes siguiente y de una vez (puntual); en cuotas, fijo con cantidad_meses = cuotas desde el mes siguiente. Si quiere crear una tarjeta: tipo grupo, monto_mensual 0, cantidad_meses null y tarjeta con la marca.
 - Si te mandan una captura: un ticket o factura es un gasto (crear_gasto, o usar_reserva si es de una reserva de la lista); un resumen de tarjeta puede tener varios gastos (proponé uno por cada consumo que valga la pena, las cuotas como fijo); el portafolio de un broker es cargar_cartera con todas las posiciones de CEDEARs que se vean. Leé los números con cuidado (en Argentina el punto separa miles y la coma, decimales). Si algo no se lee bien, decilo y preguntá en vez de inventar.
 - Respuestas cortas, cálidas y con un toque de humor de mona, en ${p.idioma === 'en' ? 'inglés' : 'castellano rioplatense'}. Nada de consejos financieros ni temas ajenos a la app.
 La persona se llama ${p.nombre || '(sin nombre)'}.${p.saldo !== undefined ? ` Saldo hoy: ${p.saldo / 100} ${p.moneda}.` : ''}${p.ingreso ? ` Ingreso: ${p.ingreso.monto / 100} ${p.moneda} por mes, cobra el día ${p.ingreso.diaCobro}.` : ''}
@@ -357,6 +365,7 @@ export function interpretarHerramienta(
         modoReserva: reserva ? (e.modo_reserva === 'manual' ? 'manual' : 'proporcional') : null,
         recurrente: reserva ? n !== 1 : false,
         ...(grupo ? { grupoId: grupo.id } : {}),
+        ...(tipo === 'grupo' && TARJETAS.includes(e.tarjeta as Tarjeta) ? { tarjeta: e.tarjeta as Tarjeta } : {}),
       },
     };
   }
@@ -423,6 +432,8 @@ export function interpretarHerramienta(
   if (nombre === 'pagar_gasto') {
     const mes = typeof e.mes === 'string' && esMesValido(e.mes) ? e.mes : actual;
     if (g.tipo === 'reserva' || mes < actual) return null;
+    // De una tarjeta se paga el total, no cada compra (Fede, 4/11).
+    if (g.grupoId && gastos.find((t) => t.id === g.grupoId)?.tarjeta) return null;
     return { accion: 'pagar', gastoId: g.id, mes, nombre: g.nombre };
   }
   if (nombre === 'usar_reserva') {
