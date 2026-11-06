@@ -58,7 +58,7 @@ Sin `MONGO_URI` la API levanta solo con `GET /ping`, `GET /salud` y `POST /admin
 | `POST /gastos/:id/restaurar` | desarchiva (el "Deshacer" del front) |
 | `PATCH /gastos/:id` con `cambiosMonto` | `[{desde, monto}]`: el monto cambia desde ese mes en adelante (el motor usa el último que ya rige), así editar no reescribe los meses anteriores |
 | `PUT /gastos/:id/meses/:mes` | `{montoDelMes}`: monto distinto solo ese mes (null lo saca) |
-| `POST/DELETE /gastos/:id/meses/:mes/pagar` | pagar descuenta del saldo; desmarcar lo devuelve. Body opcional `{cuentaId, cantidad?}` (Fede 3/11): sale de esa cuenta (`cantidad` en su moneda si es otra) y desmarcar la devuelve ahí (a la principal si la cuenta se borró). El front pregunta la cuenta solo si hay más de una |
+| `POST/DELETE /gastos/:id/meses/:mes/pagar` | pagar descuenta del saldo; desmarcar lo devuelve. Body opcional `{cuentaId, cantidad?}` (Fede 3/11): sale de esa cuenta (`cantidad` en su moneda si es otra) y desmarcar la devuelve ahí (a la principal si la cuenta se borró). `cuentaId: 'ninguna'` (Fede 6/11) lo marca pagado sin tocar ningún saldo (`sinSaldo`; desmarcar no devuelve nada; igual en usos). El front pregunta la cuenta solo si hay más de una |
 | `GET/POST /gastos/:id/usos`, `DELETE /usos/:id` | usos de reserva (bajan el saldo); con `cuentaId` (y `cantidad`) salen de esa cuenta, como pagar |
 | `GET /datos` | perfil + gastos + estados + usos desde el mes actual, para que el front calcule |
 | `GET /meses/:mes`, `GET /proyeccion?hasta=AAAA-MM` | resumen con el motor (hasta 24 meses) |

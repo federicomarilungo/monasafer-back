@@ -433,7 +433,8 @@ export class MonasaferService implements Sesiones {
   /**
    * De dónde sale (o adónde vuelve) la plata de un pago o un uso: sin cuenta, la principal;
    * con cuenta, `cantidad` es lo mismo que `monto` en su moneda (el front lo convierte con la
-   * cotización del día; en la misma moneda es el monto).
+   * cotización del día; en la misma moneda es el monto). `'ninguna'` (Fede, 6/11): queda
+   * anotado pero no se resta de ninguna cuenta (ya lo había descontado, lo pagó otro).
    */
   private async origenDelPago(
     usuarioId: string,
@@ -442,12 +443,14 @@ export class MonasaferService implements Sesiones {
     monto: number,
     cantidad: number | null,
   ) {
-    if (!cuentaId || cuentaId === 'principal') return { cuenta: null, cantidad: null };
+    if (cuentaId === 'ninguna') return { cuenta: null, cantidad: null, sinSaldo: true };
+    if (!cuentaId || cuentaId === 'principal')
+      return { cuenta: null, cantidad: null, sinSaldo: false };
     const cuenta = await this.cuentaDe(usuarioId, cuentaId);
     if (cuenta.moneda === monedaUsuario) cantidad = monto;
     if (cantidad == null || cantidad < 0 || (monto > 0 && cantidad === 0))
       throw new BadRequestException('cantidad: lo que sale en la moneda de la cuenta');
-    return { cuenta, cantidad };
+    return { cuenta, cantidad, sinSaldo: false };
   }
 
   /** Suma (o resta, con delta negativo) a la cuenta, o a la principal si no hay. */
@@ -659,9 +662,11 @@ export class MonasaferService implements Sesiones {
         $set: {
           pagado: true,
           pagadoEn: new Date(),
-          montoPagado: monto,
+          // Sin cuenta no se descontó nada, así que desmarcar no devuelve nada.
+          montoPagado: origen.sinSaldo ? 0 : monto,
           cuentaId: origen.cuenta?._id ?? null,
           cantidadPagada: origen.cantidad,
+          sinSaldo: origen.sinSaldo,
         },
         $setOnInsert: { usuarioId: g.usuarioId },
       },
@@ -669,7 +674,8 @@ export class MonasaferService implements Sesiones {
     );
     if (!r.modifiedCount && !r.upsertedCount)
       throw new ConflictException('Ya estaba pagado');
-    await this.moverSaldo(g.usuarioId, origen.cuenta?._id, -(origen.cantidad ?? monto));
+    if (!origen.sinSaldo)
+      await this.moverSaldo(g.usuarioId, origen.cuenta?._id, -(origen.cantidad ?? monto));
     return this.perfil(usuarioId);
   }
 
@@ -689,10 +695,12 @@ export class MonasaferService implements Sesiones {
           montoPagado: 0,
           cuentaId: null,
           cantidadPagada: null,
+          sinSaldo: false,
         },
       },
     );
     if (!estado) throw new ConflictException('No estaba pagado');
+    if (estado.sinSaldo) return this.perfil(usuarioId);
     // Vuelve a la cuenta de donde salió (si la borraron, a la principal en su valor).
     const vuelve =
       estado.cuentaId && (await this.cuentas.exists({ _id: estado.cuentaId, archivada: false }))
@@ -730,8 +738,10 @@ export class MonasaferService implements Sesiones {
       nota,
       cuentaId: origen.cuenta?._id ?? null,
       cantidad: origen.cantidad,
+      sinSaldo: origen.sinSaldo,
     });
-    await this.moverSaldo(g.usuarioId, origen.cuenta?._id, -(origen.cantidad ?? monto));
+    if (!origen.sinSaldo)
+      await this.moverSaldo(g.usuarioId, origen.cuenta?._id, -(origen.cantidad ?? monto));
     return {
       id: uso.id,
       gastoId,
@@ -739,6 +749,7 @@ export class MonasaferService implements Sesiones {
       monto,
       nota,
       cuentaId: origen.cuenta ? String(origen.cuenta._id) : null,
+      sinSaldo: origen.sinSaldo,
     };
   }
 
@@ -754,6 +765,7 @@ export class MonasaferService implements Sesiones {
       monto: u.monto,
       nota: u.nota,
       cuentaId: u.cuentaId ? String(u.cuentaId) : null,
+      sinSaldo: !!u.sinSaldo,
     }));
   }
 
@@ -763,6 +775,7 @@ export class MonasaferService implements Sesiones {
       usuarioId: oid(usuarioId),
     });
     if (!uso) throw new NotFoundException();
+    if (uso.sinSaldo) return { ok: true };
     const vuelve =
       uso.cuentaId && (await this.cuentas.exists({ _id: uso.cuentaId, archivada: false }))
         ? uso.cuentaId

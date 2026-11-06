@@ -790,6 +790,22 @@ describe('API de Monasafer', () => {
     // Sin cuenta (o 'principal'), como siempre.
     await http.post(`/gastos/${gas.id}/meses/2026-10/pagar`).set(auth).send({ cuentaId: 'principal' }).expect(200);
     expect(await saldos()).toEqual([USD(970), USD(150), 50000000]);
+    // Fede, 6/11: "no restar de ninguna cuenta": queda pagado y ningún saldo cambia, ni al
+    // pagar ni al desmarcar.
+    await http.delete(`/gastos/${gas.id}/meses/2026-10/pagar`).set(auth).expect(200);
+    await http.post(`/gastos/${gas.id}/meses/2026-10/pagar`).set(auth).send({ cuentaId: 'ninguna' }).expect(200);
+    expect(await saldos()).toEqual([USD(1000), USD(150), 50000000]);
+    const r2 = (await http.get('/meses/2026-10').set(auth).expect(200)).body;
+    expect(r2.gastos.find((l: { gastoId: string }) => l.gastoId === gas.id).pagado).toBe(true);
+    await http.delete(`/gastos/${gas.id}/meses/2026-10/pagar`).set(auth).expect(200);
+    expect(await saldos()).toEqual([USD(1000), USD(150), 50000000]);
+    await http.post(`/gastos/${gas.id}/meses/2026-10/pagar`).set(auth).send({ cuentaId: 'principal' }).expect(200);
+    expect(await saldos()).toEqual([USD(970), USD(150), 50000000]);
+    const sin = (await http.post(`/gastos/${super_.id}/usos`).set(auth).send({ mes: '2026-10', monto: USD(5), cuentaId: 'ninguna' }).expect(201)).body;
+    expect(sin.sinSaldo).toBe(true);
+    expect(await saldos()).toEqual([USD(970), USD(150), 50000000]);
+    await http.delete(`/usos/${sin.id}`).set(auth).expect(200);
+    expect(await saldos()).toEqual([USD(970), USD(150), 50000000]);
 
     // Usos de reserva: igual.
     const uso = (await http.post(`/gastos/${super_.id}/usos`).set(auth).send({ mes: '2026-10', monto: USD(20), cuentaId: pesos.id, cantidad: 3000000 }).expect(201)).body;
