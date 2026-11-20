@@ -10,7 +10,12 @@ import { Model, Types } from 'mongoose';
 import crypto from 'crypto';
 import { Ahorro, mesDe } from '../motor';
 import { Usuario } from '../datos/esquemas';
-import { Bolsillo, GrupoCajon, MercadoBolsillo, MovimientoCajon } from './esquemas';
+import {
+  Bolsillo,
+  GrupoCajon,
+  MercadoBolsillo,
+  MovimientoCajon,
+} from './esquemas';
 
 function oid(id: string): Types.ObjectId {
   if (!Types.ObjectId.isValid(id)) throw new NotFoundException();
@@ -59,7 +64,10 @@ export class CajonService {
         .sort({ createdAt: -1 })
         .limit(300)
         .lean(),
-      this.grupos.find({ usuarioId: id }).sort({ orden: 1, createdAt: 1 }).lean(),
+      this.grupos
+        .find({ usuarioId: id })
+        .sort({ orden: 1, createdAt: 1 })
+        .lean(),
     ]);
     return {
       grupos: grupos.map((g) => this.grupoPublico(g)),
@@ -190,7 +198,10 @@ export class CajonService {
     if (ids.length)
       await this.grupos.bulkWrite(
         ids.map((g, i) => ({
-          updateOne: { filter: { _id: oid(g), usuarioId: id }, update: { $set: { orden: i } } },
+          updateOne: {
+            filter: { _id: oid(g), usuarioId: id },
+            update: { $set: { orden: i } },
+          },
         })),
       );
     await this.bolsillos.bulkWrite(
@@ -217,10 +228,19 @@ export class CajonService {
     return this.cajon(usuarioId);
   }
 
-  /** Solo se borra un bolsillo vacío: lo que tiene se gasta, se retira o se pasa a otro. */
-  async borrarBolsillo(usuarioId: string, bolsilloId: string) {
+  /**
+   * Borra (archiva) un bolsillo. Vacío, siempre. Con algo adentro, solo con `conPlata`
+   * (Fede, 20/11: "poder borrar bolsillos"): deja de contar en el cajón y no vuelve al
+   * saldo, como borrar una cuenta; el front lo avisa y pide confirmar. Los movimientos
+   * quedan, así "Lo que guardaste cada mes" no cambia.
+   */
+  async borrarBolsillo(
+    usuarioId: string,
+    bolsilloId: string,
+    conPlata = false,
+  ) {
     const b = await this.bolsilloDe(usuarioId, bolsilloId);
-    if ((await this.cantidadDe(b._id)) !== 0)
+    if (!conPlata && (await this.cantidadDe(b._id)) !== 0)
       throw new ConflictException('Primero vaciá el bolsillo');
     await this.bolsillos.updateOne(
       { _id: b._id },
@@ -453,13 +473,25 @@ export class CajonService {
     const id = oid(usuarioId);
     if ((await this.grupos.countDocuments({ usuarioId: id })) >= 20)
       throw new BadRequestException('Hasta 20 grupos');
-    const creado = await this.grupos.create({ ...g, usuarioId: id, orden: await this.ordenNuevo(id) });
+    const creado = await this.grupos.create({
+      ...g,
+      usuarioId: id,
+      orden: await this.ordenNuevo(id),
+    });
     return this.grupoPublico(creado.toObject());
   }
 
-  async editarGrupo(usuarioId: string, grupoId: string, cambios: { nombre?: string; emoji?: string }) {
+  async editarGrupo(
+    usuarioId: string,
+    grupoId: string,
+    cambios: { nombre?: string; emoji?: string },
+  ) {
     const g = await this.grupos
-      .findOneAndUpdate({ _id: oid(grupoId), usuarioId: oid(usuarioId) }, { $set: cambios }, { new: true })
+      .findOneAndUpdate(
+        { _id: oid(grupoId), usuarioId: oid(usuarioId) },
+        { $set: cambios },
+        { new: true },
+      )
       .lean();
     if (!g) throw new NotFoundException();
     return this.grupoPublico(g);
@@ -468,19 +500,29 @@ export class CajonService {
   /** Borrar un grupo no toca la plata: sus bolsillos quedan sueltos, en su lugar. */
   async borrarGrupo(usuarioId: string, grupoId: string) {
     const g = await this.grupoDe(usuarioId, grupoId);
-    await this.bolsillos.updateMany({ usuarioId: g.usuarioId, grupoId: g._id }, { $set: { grupoId: null } });
+    await this.bolsillos.updateMany(
+      { usuarioId: g.usuarioId, grupoId: g._id },
+      { $set: { grupoId: null } },
+    );
     await this.grupos.deleteOne({ _id: g._id });
     return { ok: true };
   }
 
   private async grupoDe(usuarioId: string, grupoId: string) {
-    const g = await this.grupos.findOne({ _id: oid(grupoId), usuarioId: oid(usuarioId) }).lean();
+    const g = await this.grupos
+      .findOne({ _id: oid(grupoId), usuarioId: oid(usuarioId) })
+      .lean();
     if (!g) throw new BadRequestException('grupoId: no es un grupo tuyo');
     return g;
   }
 
   private grupoPublico(g: GrupoCajon & { _id: unknown }) {
-    return { id: String(g._id), nombre: g.nombre, emoji: g.emoji ?? '', orden: g.orden ?? 0 };
+    return {
+      id: String(g._id),
+      nombre: g.nombre,
+      emoji: g.emoji ?? '',
+      orden: g.orden ?? 0,
+    };
   }
 
   async borrarDatos(usuarioId: string) {

@@ -233,8 +233,12 @@ export class CajonController {
   }
 
   @Delete('bolsillos/:id')
-  borrarBolsillo(@UsuarioId() u: string, @Param('id') id: string) {
-    return this.s.borrarBolsillo(u, id);
+  borrarBolsillo(
+    @UsuarioId() u: string,
+    @Param('id') id: string,
+    @Query('conPlata') conPlata?: string,
+  ) {
+    return this.s.borrarBolsillo(u, id, conPlata === '1' || conPlata === 'true');
   }
 
   @Post('ahorrar')

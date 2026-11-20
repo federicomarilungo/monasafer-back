@@ -74,7 +74,7 @@ auditoría: `ahorro` (sale del saldo), `retiro` (vuelve al saldo), `gasto` / `in
 (se editó el total, con detalle) y `traspaso` (dos movimientos con el mismo `grupo`).
 Un bolsillo puede tener `cotizacion {moneda, valor}` (centavos por 1 unidad, puesta a mano):
 manda sobre la de mercado al valuar el cajón (lo que no cotiza, o el valor propio de Fede).
-- `GET /cajon`, `PUT /cajon/orden {ids}`, `POST/PATCH/DELETE /cajon/bolsillos[/:id]` (solo se borra vacío; PATCH cambia
+- `GET /cajon`, `PUT /cajon/orden {ids}`, `POST/PATCH/DELETE /cajon/bolsillos[/:id]` (se borra vacío, o con algo adentro con `?conPlata=1`: deja de contar y no vuelve al saldo; PATCH cambia
   nombre, emoji, unidad y `cotizacion`, y `decimales` solo con el bolsillo vacío).
 - Grupos del cajón (Fede, 2/11): `grupos_cajon` `{nombre, emoji, orden}` juntan bolsillos
   (`grupoId` en el bolsillo, al crear o con PATCH; null lo saca), sobre todo inversiones
