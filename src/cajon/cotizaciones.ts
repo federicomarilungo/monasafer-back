@@ -8,15 +8,31 @@ import { Injectable } from '@nestjs/common';
 // - Oro (XAU, onza troy): gold-api.com; si falla, CoinGecko (PAX Gold, 1 onza).
 // - Las cripto más comunes de Binance (CRIPTO_BINANCE, Fede 02/11/2026) que no traiga
 //   Coinbase (TRX, por ejemplo) salen de la API pública de datos de Binance, en USDT.
-// - ARS: dólar MEP (dolarapi.com, venta), que es el que usa la gente para ahorrar.
+// - ARS: dólar MEP (dolarapi.com, venta), que es el que usa la gente para ahorrar. Además
+//   van todos los dólares de dolarapi con compra y venta (`dolares`, Fede 20/11): cada
+//   persona elige cuál usar (`dolar` del perfil) y el front pasa USD → pesos a la compra
+//   (a lo que lo venderías) y pesos → USD a la venta (a lo que lo conseguís).
 // Se cachea una hora; si todo falla se devuelve la última buena.
 
 export interface Cotizaciones {
   base: 'USD';
   /** Unidades de cada código por 1 USD (ARS 1550, EUR 0.89, BTC 0.0000122, XAU 0.000248). */
   porUsd: Record<string, number>;
+  /** Pesos por 1 USD de cada dólar argentino: { oficial: { compra, venta }, blue: … }. */
+  dolares: Record<string, { compra: number; venta: number }>;
   fecha: string;
 }
+
+/** Los dólares que se pueden elegir, con la clave (`casa`) de dolarapi. */
+export const DOLARES = [
+  'oficial',
+  'blue',
+  'bolsa',
+  'contadoconliqui',
+  'cripto',
+  'tarjeta',
+  'mayorista',
+] as const;
 
 const UNA_HORA = 60 * 60 * 1000;
 
@@ -92,7 +108,7 @@ export class FuenteCotizaciones {
     const [general, oro, mep] = await Promise.allSettled([
       this.monedasYCripto(),
       this.oroPorOnza(),
-      json('https://dolarapi.com/v1/dolares/bolsa'),
+      json('https://dolarapi.com/v1/dolares'),
     ]);
     if (general.status === 'fulfilled')
       for (const [k, v] of Object.entries(general.value)) anotar(k, v);
@@ -101,14 +117,38 @@ export class FuenteCotizaciones {
       for (const [k, v] of Object.entries(await this.binance(faltan)))
         anotar(k, v);
     if (oro.status === 'fulfilled') anotar('XAU', 1 / oro.value);
-    if (mep.status === 'fulfilled')
-      anotar('ARS', (mep.value as { venta?: unknown }).venta);
+    const dolares: Cotizaciones['dolares'] = {};
+    if (mep.status === 'fulfilled' && Array.isArray(mep.value))
+      for (const d of mep.value as {
+        casa?: string;
+        compra?: unknown;
+        venta?: unknown;
+      }[]) {
+        const compra = positivo(d.compra);
+        const venta = positivo(d.venta);
+        if (
+          d.casa &&
+          (DOLARES as readonly string[]).includes(d.casa) &&
+          compra &&
+          venta
+        )
+          dolares[d.casa] = { compra, venta };
+      }
+    if (dolares.bolsa) anotar('ARS', dolares.bolsa.venta);
+    else if (this.cache?.porUsd.ARS) anotar('ARS', this.cache.porUsd.ARS);
+    if (!Object.keys(dolares).length && this.cache)
+      Object.assign(dolares, this.cache.dolares);
     if (!porUsd.EUR) {
       console.error('[cotizaciones] no se pudieron leer', general, oro);
       return this.cache;
     }
     porUsd.USD = 1;
-    this.cache = { base: 'USD', porUsd, fecha: new Date().toISOString() };
+    this.cache = {
+      base: 'USD',
+      porUsd,
+      dolares,
+      fecha: new Date().toISOString(),
+    };
     return this.cache;
   }
 

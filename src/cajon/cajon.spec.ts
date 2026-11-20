@@ -311,7 +311,11 @@ describe('Cajón de bananas', () => {
           data: { rates: { ARS: '1500', EUR: '0.9', BTC: '0.00001' } },
         },
         'api.gold-api.com': { price: 4000 },
-        'dolarapi.com': { venta: 1550 },
+        'dolarapi.com': [
+          { casa: 'oficial', compra: 1500, venta: 1540 },
+          { casa: 'bolsa', compra: 1530, venta: 1550 },
+          { casa: 'otra', compra: 1, venta: 2 },
+        ],
         'open.er-api.com': { rates: { ARS: 1490, EUR: 0.91 } },
         'api.coingecko.com': { bitcoin: { usd: 80000 }, tether: { usd: 1 } },
       };
@@ -330,6 +334,10 @@ describe('Cajón de bananas', () => {
         EUR: 0.9,
         BTC: 0.00001,
         XAU: 1 / 4000,
+      });
+      expect(r.dolares).toEqual({
+        oficial: { compra: 1500, venta: 1540 },
+        bolsa: { compra: 1530, venta: 1550 },
       });
       // Cacheada una hora: no vuelve a buscar.
       const llamadas = fetchFalso.mock.calls.length;
@@ -368,6 +376,19 @@ describe('Cajón de bananas', () => {
       .send({ monedaCajon: 'USD' })
       .expect(200);
     expect(p.body).toMatchObject({ moneda: 'ARS', monedaCajon: 'USD' });
+  });
+
+  it('el dólar para pasar pesos se elige en el perfil (MEP si no se eligió)', async () => {
+    expect((await http.get('/perfil').set(auth).expect(200)).body.dolar).toBe(
+      'bolsa',
+    );
+    await http.patch('/perfil').set(auth).send({ dolar: 'euro' }).expect(400);
+    const p = await http
+      .patch('/perfil')
+      .set(auth)
+      .send({ dolar: 'blue' })
+      .expect(200);
+    expect(p.body.dolar).toBe('blue');
   });
 
   it('un bolsillo puede tener su propio valor por unidad (para lo que no cotiza)', async () => {

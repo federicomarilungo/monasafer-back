@@ -1,3 +1,4 @@
+import { DOLARES } from '../cajon/cotizaciones';
 import {
   Body,
   Controller,
@@ -59,10 +60,7 @@ export class MonasaferController {
     const email = v.email(b.email);
     this.limite.usar(`login:${ipDe(req)}`, 30, 15 * MIN);
     this.limite.usar(`login:${email}`, 10, 15 * MIN);
-    return this.s.login(
-      email,
-      typeof b.clave === 'string' ? b.clave : '',
-    );
+    return this.s.login(email, typeof b.clave === 'string' ? b.clave : '');
   }
 
   @Public()
@@ -139,6 +137,11 @@ export class MonasaferController {
         throw new BadRequestException(`monedaCajon: ${MONEDAS.join(', ')}`);
       cambios.monedaCajon = b.monedaCajon as string;
     }
+    if (b.dolar !== undefined) {
+      if (!(DOLARES as readonly string[]).includes(b.dolar as string))
+        throw new BadRequestException(`dolar: ${DOLARES.join(', ')}`);
+      cambios.dolar = b.dolar as string;
+    }
     if (b.idioma !== undefined) {
       if (!IDIOMAS.includes(b.idioma as string))
         throw new BadRequestException('idioma: es o en');
@@ -146,7 +149,12 @@ export class MonasaferController {
     }
     if (b.saldo !== undefined) cambios.saldo = v.saldo(b.saldo);
     if (b.nombreCuentaPrincipal !== undefined)
-      cambios.nombreCuentaPrincipal = v.texto(b.nombreCuentaPrincipal, 'nombreCuentaPrincipal', 40, false);
+      cambios.nombreCuentaPrincipal = v.texto(
+        b.nombreCuentaPrincipal,
+        'nombreCuentaPrincipal',
+        40,
+        false,
+      );
     if (b.ingresoMensual !== undefined) {
       if (b.ingresoMensual === null) cambios.ingresoMensual = null;
       else {
@@ -197,10 +205,20 @@ export class MonasaferController {
   }
 
   @Patch('cuentas/:id')
-  editarCuenta(@UsuarioId() u: string, @Param('id') id: string, @Body() body: unknown) {
+  editarCuenta(
+    @UsuarioId() u: string,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
     const b = v.objeto(body);
-    const cambios: Partial<{ nombre: string; emoji: string; saldo: number; moneda: string }> = {};
-    if (b.nombre !== undefined) cambios.nombre = v.texto(b.nombre, 'nombre', 40);
+    const cambios: Partial<{
+      nombre: string;
+      emoji: string;
+      saldo: number;
+      moneda: string;
+    }> = {};
+    if (b.nombre !== undefined)
+      cambios.nombre = v.texto(b.nombre, 'nombre', 40);
     // La moneda se puede cambiar (Fede, 2/11: "tengo dólares en esa cuenta"): el número
     // pasa a leerse en la moneda nueva, no se convierte.
     if (b.moneda !== undefined) {
@@ -208,7 +226,8 @@ export class MonasaferController {
         throw new BadRequestException(`moneda: ${MONEDAS.join(', ')}`);
       cambios.moneda = b.moneda as string;
     }
-    if (b.emoji !== undefined) cambios.emoji = v.texto(b.emoji, 'emoji', 16, false);
+    if (b.emoji !== undefined)
+      cambios.emoji = v.texto(b.emoji, 'emoji', 16, false);
     if (b.saldo !== undefined) cambios.saldo = v.saldo(b.saldo);
     return this.s.editarCuenta(u, id, cambios);
   }
@@ -233,7 +252,10 @@ export class MonasaferController {
 
   @Get('ingresos')
   ingresos(@UsuarioId() u: string, @Query('mes') mes?: string) {
-    return this.s.listarIngresos(u, mes === undefined ? mesDe(this.s.hoy()) : v.mes(mes));
+    return this.s.listarIngresos(
+      u,
+      mes === undefined ? mesDe(this.s.hoy()) : v.mes(mes),
+    );
   }
 
   @Delete('ingresos/:id')
@@ -296,7 +318,8 @@ export class MonasaferController {
     @Body() body: unknown,
   ) {
     // Body opcional: {cuentaId, cantidad} si sale de otra cuenta (Fede, 3/11).
-    const b = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const b =
+      body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
     return this.s.pagar(
       u,
       id,

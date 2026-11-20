@@ -90,7 +90,10 @@ manda sobre la de mercado al valuar el cajón (lo que no cotiza, o el valor prop
   de otro que tenés guardada y resta del total del cajón).
 - `GET /cajon/cotizaciones` (público a propósito): `{base:'USD', porUsd, fecha}`, unidades
   de cada código por 1 USD. Coinbase (respaldo open.er-api + CoinGecko), oro de gold-api
-  (respaldo CoinGecko PAX Gold, onza troy) y ARS al dólar MEP de dolarapi. Caché de 1 h
+  (respaldo CoinGecko PAX Gold, onza troy) y ARS al dólar MEP de dolarapi. `dolares` trae
+  compra y venta de cada dólar de dolarapi (oficial, blue, bolsa, CCL, cripto, tarjeta,
+  mayorista); el perfil guarda cuál usa la persona (`dolar`, default `bolsa`, Fede 20/11) y el
+  front pasa USD → pesos a la compra y pesos → USD a la venta. Caché de 1 h
   (`src/cajon/cotizaciones.ts`). La moneda base es `monedaCajon` del perfil (default: la de
   la cuenta); el front convierte (un bolsillo en `g` se valúa como oro).
 - Cartera de inversiones (Fede 25/10 y 02/11): un bolsillo con `mercado` es una inversión;

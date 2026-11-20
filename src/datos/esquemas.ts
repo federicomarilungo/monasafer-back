@@ -37,6 +37,8 @@ export class Usuario {
   @Prop({ default: 'es', enum: IDIOMAS }) idioma: string;
   /** Moneda en la que se valúa el cajón de bananas (null: la de la cuenta). */
   @Prop({ type: String, default: null }) monedaCajon: string | null;
+  /** Qué dólar usa para pasar pesos y dólares (Fede, 20/11): clave de dolarapi, default MEP. */
+  @Prop({ type: String, default: null }) dolar: string | null;
   /** Premium vale hasta esta fecha (la renueva cada pago de la suscripción). */
   @Prop({ type: Date, default: null }) premiumHasta: Date | null;
   @Prop({ type: SchemaFactory.createForClass(UsosGratis), default: () => ({}) })

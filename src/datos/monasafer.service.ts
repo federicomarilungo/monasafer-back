@@ -228,6 +228,7 @@ export class MonasaferService implements Sesiones {
         | 'nombre'
         | 'moneda'
         | 'monedaCajon'
+        | 'dolar'
         | 'idioma'
         | 'saldo'
         | 'ingresoMensual'
@@ -932,6 +933,7 @@ export class MonasaferService implements Sesiones {
       google: !!u.googleSub,
       moneda: u.moneda,
       monedaCajon: u.monedaCajon ?? u.moneda,
+      dolar: u.dolar ?? 'bolsa',
       nombreCuentaPrincipal: u.nombreCuentaPrincipal ?? '',
       idioma: u.idioma ?? 'es',
       premium: {

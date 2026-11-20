@@ -219,11 +219,17 @@ export class CajonController {
   }
 
   @Patch('grupos/:id')
-  editarGrupo(@UsuarioId() u: string, @Param('id') id: string, @Body() body: unknown) {
+  editarGrupo(
+    @UsuarioId() u: string,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
     const b = v.objeto(body);
     const cambios: { nombre?: string; emoji?: string } = {};
-    if (b.nombre !== undefined) cambios.nombre = v.texto(b.nombre, 'nombre', 40);
-    if (b.emoji !== undefined) cambios.emoji = v.texto(b.emoji, 'emoji', 16, false);
+    if (b.nombre !== undefined)
+      cambios.nombre = v.texto(b.nombre, 'nombre', 40);
+    if (b.emoji !== undefined)
+      cambios.emoji = v.texto(b.emoji, 'emoji', 16, false);
     return this.s.editarGrupo(u, id, cambios);
   }
 
@@ -238,7 +244,11 @@ export class CajonController {
     @Param('id') id: string,
     @Query('conPlata') conPlata?: string,
   ) {
-    return this.s.borrarBolsillo(u, id, conPlata === '1' || conPlata === 'true');
+    return this.s.borrarBolsillo(
+      u,
+      id,
+      conPlata === '1' || conPlata === 'true',
+    );
   }
 
   @Post('ahorrar')
