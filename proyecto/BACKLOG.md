@@ -44,6 +44,7 @@ Preguntas abiertas: [PREGUNTAS.md](PREGUNTAS.md).
 | L11 | Ficha de Play: textos, ícono, portada y capturas | P0 | lista | Claude | |
 | L12 | Formularios de la consola (seguridad de datos, clasificación, financiero, acceso) | P0 | lista | Ambos | L3, L9 |
 | L13 | Prueba cerrada con 12+ testers durante 14 días y pedido de producción | P0 | lista | Fede | L10-L12 |
+| L14 | 🚨 Sacar `POST /admin/consulta-abierta` (lectura sin clave de la cuenta de Fede, 20/11) o apagarla con `CONSULTA_ABIERTA=0` | P0 | lista | Claude | |
 | I1 | Elegir idioma (castellano / inglés) y moneda (9) | P1 | hecha | Claude | B3 |
 | C1 | Propuestas visuales del mono y de la pantalla del mes | P0 | lista | Ambos | |
 | C2 | Pantalla del mes: balance, mono y lista de gastos | P0 | hecha | Claude | C1, B6 |

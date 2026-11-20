@@ -4,7 +4,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { AdminKeyGuard } from './admin.guard';
-import { ConsultaInvalida, LIMITE_MAXIMO, validarConsulta } from './consulta';
+import {
+  ConsultaInvalida,
+  LIMITE_MAXIMO,
+  validarAbierta,
+  validarConsulta,
+} from './consulta';
 
 describe('validarConsulta', () => {
   it('acepta un find con filtro, orden y límite', () => {
@@ -95,4 +100,37 @@ describe('AdminKeyGuard', () => {
     process.env.ADMIN_API_KEY = clave;
     expect(guard.canActivate(ctx({ 'x-admin-key': clave }))).toBe(true);
   });
+});
+
+describe('validarAbierta', () => {
+  const v = (b: unknown) => validarAbierta(validarConsulta(b));
+  it('deja leer las colecciones de la cuenta', () => {
+    expect(() =>
+      v({ operacion: 'find', coleccion: 'bolsillos' }),
+    ).not.toThrow();
+  });
+  it.each([
+    [{ operacion: 'find', coleccion: 'otra' }],
+    [
+      {
+        operacion: 'aggregate',
+        coleccion: 'bolsillos',
+        pipeline: [{ $lookup: { from: 'usuarios' } }],
+      },
+    ],
+    [
+      {
+        operacion: 'aggregate',
+        coleccion: 'gastos',
+        pipeline: [{ $unionWith: 'usuarios' }],
+      },
+    ],
+    [
+      {
+        operacion: 'aggregate',
+        coleccion: 'gastos',
+        pipeline: [{ $facet: { a: [] } }],
+      },
+    ],
+  ])('rechaza %j', (b) => expect(() => v(b)).toThrow(ConsultaInvalida));
 });

@@ -2,6 +2,7 @@ import { DynamicModule, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { SaludController } from './salud.controller';
 import { AdminController } from './admin/admin.controller';
+import { AbiertaController } from './admin/abierta.controller';
 import { DatosModule } from './datos/datos.module';
 
 @Module({})
@@ -23,7 +24,7 @@ export class AppModule {
     return {
       module: AppModule,
       imports: conBase,
-      controllers: [SaludController, AdminController],
+      controllers: [SaludController, AdminController, AbiertaController],
     };
   }
 }

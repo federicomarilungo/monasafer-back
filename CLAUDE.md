@@ -170,6 +170,11 @@ curl -s -X POST https://monasafer-4lh7x.ondigitalocean.app/api/admin/consulta \
   -d '{"operacion":"find","coleccion":"gastos","filtro":{"tipo":"fijo"},"limite":20}'
 ```
 
+Si el entorno no tiene `ADMIN_API_KEY`: `POST /api/admin/consulta-abierta` con el mismo body más
+`email` (solo cuentas de `CUENTAS_ABIERTAS`, Fede 20/11/2026). Fuerza el filtro a ese usuario, no
+deja `$lookup`/`$unionWith`/`$facet` y nunca devuelve `hashClave`. Se apaga con
+`CONSULTA_ABIERTA=0`; se saca antes de lanzar (L14).
+
 Para algo que necesite escribir o acceso total: Remote Control en la PC de Fede, con
 `mongosh` y su `MONGO_URI`, siempre con su OK.
 
