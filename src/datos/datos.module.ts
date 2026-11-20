@@ -45,6 +45,7 @@ import { FuenteMercados } from '../cajon/mercados';
 import { Comentario, ComentarioSchema } from '../comentarios/esquemas';
 import { ComentariosController } from '../comentarios/comentarios.controller';
 import { ComentariosService } from '../comentarios/comentarios.service';
+import { ResumenSemanalService } from '../comentarios/resumen.service';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { ComentariosService } from '../comentarios/comentarios.service';
     PremiumService,
     CajonService,
     ComentariosService,
+    ResumenSemanalService,
     FuenteCotizaciones,
     FuenteMercados,
     MercadoPago,

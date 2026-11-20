@@ -7,6 +7,7 @@ import { PremiumService } from '../premium/premium.service';
 import { MonasaferService } from './monasafer.service';
 import { VerificadorGoogle } from '../auth/google';
 import { Correo } from '../auth/correo';
+import { ResumenSemanalService } from '../comentarios/resumen.service';
 import { ClienteIa, interpretarHerramienta } from '../premium/asistente';
 import { MercadoPago } from '../premium/mercadopago';
 import { getModelToken } from '@nestjs/mongoose';
@@ -372,7 +373,9 @@ describe('API de Monasafer', () => {
     const planId = s.body.url.split('/').pop();
     // la persona paga en Mercado Pago con cualquier cuenta: nace una suscripción del plan
     const id = `pre-de-${planId}`;
-    preapprovals.set(id, { id, status: 'authorized', preapproval_plan_id: planId, next_payment_date: '2026-11-20T10:00:00.000-03:00' });
+    // relativo a hoy: con una fecha fija el test se rompe cuando esa fecha pasa
+    const proximoCobro = new Date(Date.now() + 30 * 864e5).toISOString();
+    preapprovals.set(id, { id, status: 'authorized', preapproval_plan_id: planId, next_payment_date: proximoCobro });
     // vuelve a tocar "Suscribirme" (plan nuevo, vacío) y después ni vuelve a la web ni llega
     // la notificación: al leer el perfil el back encuentra la del plan pagado igual
     await http.post('/premium/suscribir').set(c.auth).send({}).expect(200);
@@ -381,7 +384,7 @@ describe('API de Monasafer', () => {
     await http.post('/pagos/mercadopago').send({ type: 'subscription_preapproval', data: { id } }).expect(200);
     const p = await http.get('/perfil').set(c.auth).expect(200);
     expect(p.body.premium.activo).toBe(true);
-    expect(new Date(p.body.premium.hasta).toISOString().slice(0, 10)).toBe('2026-11-23');
+    expect(new Date(p.body.premium.hasta).getTime()).toBe(new Date(proximoCobro).getTime() + 3 * 864e5);
     const u = await http.post('/premium/usar').set(c.auth).send({ funcion: 'metricas' }).expect(200);
     expect(u.body).toMatchObject({ permitido: true, premium: true });
     const e = await http.get('/premium').set(c.auth).expect(200);
@@ -694,6 +697,17 @@ describe('API de Monasafer', () => {
       pantalla: 'inicio',
       estado: 'nuevo',
     });
+    // resumen semanal: sale una sola vez por turno, con los que siguen "nuevo"
+    const resumen = app.get(ResumenSemanalService);
+    const n = correos.length;
+    expect(await resumen.revisar(new Date('2026-11-20T21:00:00Z'))).toBe(true);
+    expect(await resumen.revisar(new Date('2026-11-21T10:00:00Z'))).toBe(false);
+    expect(correos.length).toBe(n + 1);
+    expect(correos.at(-1)!.para).toBe('admin@monasafer.com');
+    expect(correos.at(-1)!.html).toContain('Que Mona baile &#60;b&#62;más');
+    await modelo.updateOne({ _id: r.body.id }, { estado: 'leido' });
+    expect(await resumen.revisar(new Date('2026-11-23T12:00:00Z'))).toBe(true);
+    expect(correos.at(-1)!.html).not.toContain('Que Mona baile');
     // tope de 10 por día por persona
     for (let i = 0; i < 9; i++)
       await http.post('/comentarios').set(c.auth).send({ texto: `idea ${i}` }).expect(201);

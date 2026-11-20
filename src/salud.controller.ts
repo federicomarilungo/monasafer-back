@@ -22,6 +22,8 @@ export class SaludController {
     return {
       ok: true,
       base: this.conexion ? this.conexion.readyState === 1 : null,
+      // Solo si hay clave de Resend (no la muestra): para verificar que los emails salen.
+      correo: Boolean(process.env.RESEND_API_KEY),
     };
   }
 }
