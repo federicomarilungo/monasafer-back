@@ -67,6 +67,20 @@ describe('asistente: interpretar lo que propone el modelo', () => {
     expect(interpretarHerramienta('crear_gasto', { nombre: 'X', monto_mensual: 5, tipo: 'reserva', grupo_id: 'visa' }, gastos, hoy)).toBeNull();
   });
 
+  it('pagué algo: nace pagado solo si es puntual de este mes y no va a una tarjeta', () => {
+    const base = { emoji: '🍕', monto_mensual: 50, mes_inicio: '2026-10', cantidad_meses: null, modo_reserva: null, grupo_id: null, ya_pagado: true };
+    expect(interpretarHerramienta('crear_gasto', { ...base, nombre: 'Pizza', tipo: 'puntual' }, gastos, hoy)).toMatchObject({ yaPagado: true, gasto: { tipo: 'puntual', mesInicio: '2026-10' } });
+    expect(interpretarHerramienta('crear_gasto', { ...base, nombre: 'Pizza', tipo: 'puntual', mes_inicio: '2026-11' }, gastos, hoy)).not.toHaveProperty('yaPagado');
+    expect(interpretarHerramienta('crear_gasto', { ...base, nombre: 'Gym', tipo: 'fijo', cantidad_meses: 3 }, gastos, hoy)).not.toHaveProperty('yaPagado');
+    const conTarjeta: GastoContexto[] = [
+      ...gastos,
+      { id: 'master', nombre: 'Master', emoji: '💳', tipo: 'grupo', tarjeta: 'mastercard', monto: 0, mesInicio: '2026-10', mesFin: null, pagadoEsteMes: false },
+      { id: 'viaje', nombre: 'Viaje', emoji: '✈️', tipo: 'grupo', monto: 0, mesInicio: '2026-10', mesFin: '2026-10', pagadoEsteMes: false },
+    ];
+    expect(interpretarHerramienta('crear_gasto', { ...base, nombre: 'Pizza', tipo: 'puntual', grupo_id: 'master' }, conTarjeta, hoy)).not.toHaveProperty('yaPagado');
+    expect(interpretarHerramienta('crear_gasto', { ...base, nombre: 'Hotel', tipo: 'puntual', grupo_id: 'viaje' }, conTarjeta, hoy)).toMatchObject({ yaPagado: true, gasto: { grupoId: 'viaje' } });
+  });
+
   it('reserva para siempre, manual', () => {
     const p = interpretarHerramienta('crear_gasto', {
       nombre: 'Súper', emoji: '🛒', monto_mensual: 400, tipo: 'reserva',

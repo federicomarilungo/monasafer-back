@@ -118,7 +118,8 @@ mes + acumulado de meses anteriores.
   `ANTHROPIC_API_KEY`) con herramientas que solo **proponen** (`crear_gasto`,
   `pagar_gasto`, `usar_reserva`, `editar_gasto`, `monto_del_mes`, `terminar_gasto`, `borrar_gasto`,
   `cambiar_saldo`, `cambiar_ingreso`); el front muestra cada propuesta y la persona confirma con
-  los endpoints de siempre. `cargar_cartera` (CEDEARs con cantidad, o valor en pesos para que el front deduzca).
+  los endpoints de siempre. `crear_gasto` con `ya_pagado` (Fede 21/11, "Pagué algo") propone un puntual
+  de este mes que nace pagado (`yaPagado` en la propuesta; nunca en una tarjeta): el front lo crea y lo paga desde la cuenta elegida. `cargar_cartera` (CEDEARs con cantidad, o valor en pesos para que el front deduzca).
   Con `imagen {tipo: image/jpeg|png|webp, datos: base64}` (solo premium; si no, `requierePremium`
   sin gastar mensajes) Mona lee una captura: ticket, resumen de tarjeta o portafolio del broker.
   La imagen va con el último mensaje y no se guarda; el body JSON acepta hasta 3 MB (`main.ts`).

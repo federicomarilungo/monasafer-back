@@ -46,7 +46,8 @@ export interface GastoContexto {
 }
 
 export type Propuesta =
-  | { accion: 'crear_gasto'; gasto: GastoEntrada }
+  /** `yaPagado` (Fede, 21/11, "Pagué algo"): nace pagado este mes; el front pregunta de qué cuenta salió. */
+  | { accion: 'crear_gasto'; gasto: GastoEntrada; yaPagado?: boolean }
   | { accion: 'pagar'; gastoId: string; mes: string; nombre: string }
   | { accion: 'usar_reserva'; gastoId: string; monto: number; nota: string; nombre: string }
   | {
@@ -89,6 +90,10 @@ export const HERRAMIENTAS: Anthropic.Tool[] = [
           description: 'Id de un gasto de tipo grupo de la lista para cargarlo adentro (solo puntual o fijo); null = suelto',
         },
         mes_inicio: { type: 'string', description: 'AAAA-MM; por defecto el mes actual' },
+        ya_pagado: {
+          type: 'boolean',
+          description: 'true si la persona cuenta algo que YA pagó ("gasté", "pagué", "compré"): puntual del mes actual que nace pagado. false si es algo que va a pagar, o si lo pagó con una tarjeta de crédito (se paga con el resumen)',
+        },
         cantidad_meses: {
           type: ['integer', 'null'],
           description: 'Cuántos meses dura (cuotas). null = para siempre. Ignorado si es puntual',
@@ -99,7 +104,7 @@ export const HERRAMIENTAS: Anthropic.Tool[] = [
           description: 'Solo reservas: proporcional se consume solo con los días; manual se baja cargando usos',
         },
       },
-      required: ['nombre', 'emoji', 'monto_mensual', 'tipo', 'mes_inicio', 'cantidad_meses', 'modo_reserva', 'grupo_id'],
+      required: ['nombre', 'emoji', 'monto_mensual', 'tipo', 'mes_inicio', 'cantidad_meses', 'modo_reserva', 'grupo_id', 'ya_pagado'],
       additionalProperties: false,
     },
   },
@@ -285,6 +290,7 @@ Reglas:
 - Para tocar un gasto que ya existe, elegilo de la lista por su id (buscalo por nombre aunque lo escriban distinto). Si hay dudas entre dos, preguntá.
 - "Sacar" un gasto de un solo mes = borrar_gasto. Si se repite y quiere sacarlo solo de un mes = monto_del_mes con 0; desde un mes en adelante = terminar_gasto; del todo (también los meses pasados) = borrar_gasto.
 - Si dice "borrá" o "sacá" un gasto que se repite y ya empezó antes de este mes, sin aclarar, lo más probable es que lo quiera terminar: terminar_gasto con ultimo_mes = el mes anterior (o este, si este mes ya lo pagó), así los meses pasados no quedan con información falsa. borrar_gasto solo si pide borrar todo.
+- "Pagué algo" vs. gasto futuro (Fede, 21/11): si cuenta algo que ya pagó o gastó ("gasté 5000 en pizza", "pagué el gas"), primero fijate si es un gasto de la lista sin pagar este mes (pagar_gasto) o de una reserva de la lista (usar_reserva). Si no, es algo nuevo ya pagado: crear_gasto puntual del mes actual con ya_pagado true (si lo pagó con un grupo común de la lista, adentro con grupo_id; con una tarjeta de crédito, adentro de la tarjeta con ya_pagado false, porque se paga con el resumen). Si es algo que va a pagar, ya_pagado false. Lo ya pagado nunca es reserva ni se repite.
 - Un grupo junta gastos (ej. "Visa": la persona carga ahí lo que paga con la tarjeta y después lo compara con el resumen). Si dice que algo lo pagó con una tarjeta que es un grupo de la lista, cargalo adentro con grupo_id. Pagar el grupo (pagar_gasto con su id) paga todo lo de adentro; también se puede pagar un gasto de adentro solo. Un grupo con "hasta" termina ese mes: no le metas un gasto que sigue después (fijo para siempre o cuotas que pasan ese mes); decile que el grupo tendría que existir también esos meses.
 - Una tarjeta de crédito es un grupo con marca: se carga lo que la persona compró con ella y se paga el total, nunca cada compra por separado (no uses pagar_gasto con algo de adentro). Lo que paga hoy con la tarjeta lo más probable es que venga en el resumen del mes que viene: si no dice otra cosa, mes_inicio = el mes siguiente y de una vez (puntual); en cuotas, fijo con cantidad_meses = cuotas desde el mes siguiente. Si quiere crear una tarjeta: tipo grupo, monto_mensual 0, cantidad_meses null y tarjeta con la marca.
 - Si te mandan una captura: un ticket o factura es un gasto (crear_gasto, o usar_reserva si es de una reserva de la lista); un resumen de tarjeta puede tener varios gastos (proponé uno por cada consumo que valga la pena, las cuotas como fijo); el portafolio de un broker es cargar_cartera con todas las posiciones de CEDEARs que se vean. Leé los números con cuidado (en Argentina el punto separa miles y la coma, decimales). Si algo no se lee bien, decilo y preguntá en vez de inventar.
@@ -353,8 +359,13 @@ export function interpretarHerramienta(
     // Un gasto que sigue después de que termina el grupo no entra (Fede, 3/11; igual que la API).
     const ultimo = tipo === 'puntual' ? mesInicio : mesFin;
     if (grupo?.mesFin && (!ultimo || ultimo > grupo.mesFin)) return null;
+    // Ya pagado: solo un puntual de este mes, fuera de una tarjeta y de un grupo ya pagado
+    // (ahí lo de adentro no se paga suelto, la API da 409).
+    const yaPagado =
+      e.ya_pagado === true && tipo === 'puntual' && mesInicio === actual && !grupo?.tarjeta && !grupo?.pagadoEsteMes;
     return {
       accion: 'crear_gasto',
+      ...(yaPagado ? { yaPagado: true } : {}),
       gasto: {
         nombre: nombreGasto,
         emoji: typeof e.emoji === 'string' ? e.emoji.slice(0, 16) : '',
